@@ -1,9 +1,9 @@
 use std::io::Write;
 
-mod vm;
+mod blang;
 
 fn main() {
-    vm::main::main();
+    blang::main::main();
     // REPL
     /*
     let mut input = String::new();
