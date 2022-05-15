@@ -4,6 +4,16 @@ pub struct ValueArray {
     values: Vec<Value>,
 }
 
+pub trait Printer {
+    fn print(&self);
+}
+
+impl Printer for Value {
+    fn print(&self) {
+        print!("{}", self);
+    }
+}
+
 impl ValueArray {
     pub fn new() -> Self {
         Self { values: Vec::new() }
@@ -16,8 +26,5 @@ impl ValueArray {
     }
     pub fn len(&self) -> usize {
         self.values.len()
-    }
-    pub fn print_value(&self, index: usize) {
-        println!("{}", self.values[index]);
     }
 }
