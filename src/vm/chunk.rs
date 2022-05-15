@@ -11,6 +11,12 @@ fn simple_instruction(name: &str, offset: usize) -> usize {
 }
 
 impl Chunk {
+    pub fn new() -> Self {
+        Self {
+            code: Vec::new(),
+            values: ValueArray::new(),
+        }
+    }
     /// Adds instruction into our chunk
     fn add_instruction(&mut self, instruction: OpCode) {
         self.code.push(instruction);
