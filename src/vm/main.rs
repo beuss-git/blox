@@ -1,10 +1,5 @@
-/*mod vm;
-use crate::vm::chunk::*;
-use crate::vm::opcodes::*;*/
-
 use super::chunk::*;
 use super::opcodes::*;
-use super::value::*;
 
 pub(crate) fn main() {
     let mut chunk = Chunk::new();
