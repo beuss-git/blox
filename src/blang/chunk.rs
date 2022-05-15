@@ -18,6 +18,7 @@ fn constant_instruction(name: &str, chunk: &Chunk, offset: usize) -> usize {
     let constant_index = chunk.read_chunk(offset + 1);
     print!("{}: {} {}, ", chunk.get_line(offset), name, constant_index);
     chunk.get_value(constant_index as usize).print();
+    println!();
     offset + 2
 }
 
@@ -100,6 +101,7 @@ impl Chunk {
         let name = opcode::get_name(*instruction);
 
         match *instruction {
+            opcode::OP_NEGATE => simple_instruction(name, &self, offset),
             opcode::OP_RETURN => simple_instruction(name, &self, offset),
             opcode::OP_CONSTANT => constant_instruction(name, &self, offset),
             _ => {
