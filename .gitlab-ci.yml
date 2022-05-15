@@ -1,0 +1,12 @@
+default:
+  image: rustdocker/rust:nightly
+
+build-job:
+  stage: build
+  script:
+    - /root/.cargo/bin/cargo build --release
+
+test-all:
+  stage: test
+  script:
+    - /root/.cargo/bin/cargo test
