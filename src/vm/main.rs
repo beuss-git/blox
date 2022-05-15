@@ -8,4 +8,6 @@ pub(crate) fn main() {
     chunk.add_instruction(opcode::OP_RETURN);
 
     chunk.disassemble_chunk("test chunk");
+    println!("{}", opcode::get_name(opcode::OP_CONSTANT));
+    println!("{}", opcode::get_name(10));
 }
