@@ -33,7 +33,15 @@ macro_rules! ops {
 
 // Sadly(?) I can't use an enum for this, because the list has to be exhaustive
 // and I store the code as pure u8
-ops!(OP_CONSTANT, OP_NEGATE, OP_RETURN);
+ops!(
+    OP_CONSTANT,
+    OP_ADD,
+    OP_SUBTRACT,
+    OP_MULTIPLY,
+    OP_DIVIDE,
+    OP_NEGATE,
+    OP_RETURN
+);
 
 /// Returns the name for the given opcode
 pub fn get_name(code: u8) -> &'static str {
