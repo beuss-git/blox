@@ -1,7 +1,7 @@
 default:
   image: rustdocker/rust:nightly
   tags: 
-    - main.docker
+    - blang
 
 build-job:
   stage: build
