@@ -23,8 +23,10 @@ impl Chunk {
     pub fn add_instruction(&mut self, instruction: OpCode) {
         self.code.push(instruction);
     }
-    pub fn add_constant(&mut self, value: Value) {
+    /// Adds constant into our chunk and returns the index of the constant
+    pub fn add_constant(&mut self, value: Value) -> usize {
         self.constants.add_value(value);
+        self.constants.len() - 1
     }
 
     /// Disassembles the chunk
