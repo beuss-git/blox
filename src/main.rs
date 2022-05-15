@@ -1,19 +1,9 @@
 use std::io::Write;
 
 mod vm;
-use crate::vm::chunk::*;
-use crate::vm::opcodes::*;
 
 fn main() {
-    let mut chunk = Chunk { code: Vec::new() };
-    chunk.code.push(OpCode::Return);
-
-    chunk.disassemble_chunk("test chunk");
-
-    println!("Capacity: {}", chunk.code.capacity());
-    println!("Len: {}", chunk.code.len());
-    println!("Data: {:?}", chunk.code);
-
+    vm::main::main();
     // REPL
     /*
     let mut input = String::new();
