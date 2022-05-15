@@ -100,7 +100,12 @@ impl Chunk {
         // Format the instruction back to the OpCode name
         let name = opcode::get_name(*instruction);
 
+        // TODO: rustify this, could also just check instruction type
         match *instruction {
+            opcode::OP_ADD => simple_instruction(name, &self, offset),
+            opcode::OP_SUBTRACT => simple_instruction(name, &self, offset),
+            opcode::OP_MULTIPLY => simple_instruction(name, &self, offset),
+            opcode::OP_DIVIDE => simple_instruction(name, &self, offset),
             opcode::OP_NEGATE => simple_instruction(name, &self, offset),
             opcode::OP_RETURN => simple_instruction(name, &self, offset),
             opcode::OP_CONSTANT => constant_instruction(name, &self, offset),
