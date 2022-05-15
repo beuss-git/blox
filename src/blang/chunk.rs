@@ -2,8 +2,8 @@ use super::opcode;
 use super::value::*;
 
 pub struct Chunk {
-    code: Vec<u8>,
-    constants: ValueArray,
+    pub code: Vec<u8>,
+    pub constants: ValueArray,
     line_data: Vec<u8>, // Lets assume that a line can't have more than 255 bytes
 }
 
@@ -17,7 +17,7 @@ fn simple_instruction(name: &str, chunk: &Chunk, offset: usize) -> usize {
 fn constant_instruction(name: &str, chunk: &Chunk, offset: usize) -> usize {
     let constant_index = chunk.read_chunk(offset + 1);
     print!("{}: {} {}, ", chunk.get_line(offset), name, constant_index);
-    chunk.print_value(constant_index as usize);
+    chunk.get_value(constant_index as usize).print();
     offset + 2
 }
 
@@ -63,10 +63,6 @@ impl Chunk {
         self.constants.get_value(index)
     }
 
-    pub fn print_value(&self, index: usize) {
-        self.constants.print_value(index)
-    }
-
     /// Adds instruction into our chunk
     pub fn add_instruction(&mut self, instruction: u8, line: usize) {
         self.write_chunk(instruction, line);
@@ -95,7 +91,7 @@ impl Chunk {
     }
 
     /// Disassembles the instruction at the given offset
-    fn disassemble_instruction(&self, offset: usize) -> usize {
+    pub fn disassemble_instruction(&self, offset: usize) -> usize {
         // Print out the instruction offset
         print!("{:04} ", offset);
 
