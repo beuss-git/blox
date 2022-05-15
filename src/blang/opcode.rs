@@ -3,7 +3,8 @@
 /// See https://danielkeep.github.io/tlborm/book/blk-counting.html
 macro_rules! count_tts {
     () => {0usize};
-    ($_head:tt $($tail:tt)*) => {1usize + count_tts!($($tail)*)};
+    ($name:ident) => {1usize};
+    ($name:ident , $( $rest:tt)*) => {1usize + count_tts!($($rest)*)};
 }
 
 /// Macro to generate the opcode constants and the opcode name array
@@ -24,19 +25,15 @@ macro_rules! ops {
     ($($names:ident),+) => {
 
         // Allocate the opcode name translation array and assign the names
-        const OPCODES: [&'static str; count_tts!($($names),*) - 1] = [
-            $(stringify!($names)),+
-        ];
+        const OPCODES: [&'static str; count_tts!($($names),*)] = [ $(stringify!($names)),+ ];
 
-        //pub const OPCODES: [&str; count_tts!($($names),*) - 1] = [
-        //"test", "testy" ];
         ops!(0; $($names),*);
     };
 }
 
 // Sadly(?) I can't use an enum for this, because the list has to be exhaustive
 // and I store the code as pure u8
-ops!(OP_CONSTANT, OP_RETURN);
+ops!(OP_CONSTANT, OP_NEGATE, OP_RETURN);
 
 /// Returns the name for the given opcode
 pub fn get_name(code: u8) -> &'static str {
