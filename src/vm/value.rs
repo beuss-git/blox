@@ -8,7 +8,7 @@ impl ValueArray {
     pub fn new() -> Self {
         Self { values: Vec::new() }
     }
-    fn add_value(&mut self, value: Value) {
+    pub fn add_value(&mut self, value: Value) {
         self.values.push(value);
     }
 }

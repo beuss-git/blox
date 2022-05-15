@@ -1,7 +1,9 @@
 use super::opcodes::OpCode;
+use super::value::*;
 
 pub struct Chunk {
-    pub(crate) code: Vec<OpCode>,
+    code: Vec<OpCode>,
+    constants: ValueArray,
 }
 
 /// Prints the instruction and returns the offset to the next instruction.
@@ -14,12 +16,15 @@ impl Chunk {
     pub fn new() -> Self {
         Self {
             code: Vec::new(),
-            values: ValueArray::new(),
+            constants: ValueArray::new(),
         }
     }
     /// Adds instruction into our chunk
-    fn add_instruction(&mut self, instruction: OpCode) {
+    pub fn add_instruction(&mut self, instruction: OpCode) {
         self.code.push(instruction);
+    }
+    pub fn add_constant(&mut self, value: Value) {
+        self.constants.add_value(value);
     }
 
     /// Disassembles the chunk
