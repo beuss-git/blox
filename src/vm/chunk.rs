@@ -1,8 +1,8 @@
-use super::opcodes::OpCode;
+use super::opcode;
 use super::value::*;
 
 pub struct Chunk {
-    code: Vec<OpCode>,
+    code: Vec<u8>,
     constants: ValueArray,
 }
 
@@ -20,7 +20,7 @@ impl Chunk {
         }
     }
     /// Adds instruction into our chunk
-    pub fn add_instruction(&mut self, instruction: OpCode) {
+    pub fn add_instruction(&mut self, instruction: u8) {
         self.code.push(instruction);
     }
     /// Adds constant into our chunk and returns the index of the constant
@@ -48,8 +48,8 @@ impl Chunk {
         // Format the instruction back to the OpCode name
         let name = format!("{:?}", instruction);
 
-        match instruction {
-            OpCode::Return => simple_instruction(name.as_str(), offset),
+        match *instruction {
+            opcode::OP_RETURN => simple_instruction(name.as_str(), offset),
             _ => {
                 println!("Invalid opcode {}", self.code[offset] as u8);
                 offset + 1

@@ -1,4 +1,4 @@
 pub mod chunk;
-pub mod opcodes;
+pub mod opcode;
 pub mod value;
 pub mod main;
