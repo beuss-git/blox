@@ -11,7 +11,13 @@ impl ValueArray {
     pub fn add_value(&mut self, value: Value) {
         self.values.push(value);
     }
+    pub fn get_value(&self, index: usize) -> Value {
+        self.values[index]
+    }
     pub fn len(&self) -> usize {
         self.values.len()
+    }
+    pub fn print_value(&self, index: usize) {
+        println!("{}", self.values[index]);
     }
 }
