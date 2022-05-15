@@ -56,7 +56,7 @@ impl VM {
                 }
             }
         }
-        InterpretResult::Ok
+        //InterpretResult::Ok
     }
 
     fn read_byte(&mut self) -> u8 {
