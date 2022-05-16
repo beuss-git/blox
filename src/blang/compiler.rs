@@ -141,7 +141,7 @@ impl<'a> Compiler<'a> {
     fn binary(&mut self) {
         let operator_kind = self.parser.previous.kind;
 
-        let precedence = Precedence::from(self.parser.previous.kind);
+        let precedence = Precedence::from(operator_kind);
 
         self.parse_expression(precedence);
 
@@ -193,11 +193,11 @@ impl<'a> Compiler<'a> {
         self.parse_prefix();
 
         while !self.parser.is_at_end() {
-            self.advance();
-            let next_precedence = Precedence::from(self.parser.previous.kind);
-            if precedence >= next_precedence {
+            let next_precedence = Precedence::from(self.parser.current.kind);
+            if precedence > next_precedence {
                 break;
             }
+            self.advance();
             self.parse_infix();
         }
     }

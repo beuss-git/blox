@@ -15,7 +15,7 @@ pub struct VM {
 macro_rules! binary_op {
         ($self:ident, $op:tt) => {
             match ($self.pop(), $self.pop()) {
-                (Value::Number(a), Value::Number(b)) => $self.push(Value::Number(a $op b)),
+                (Value::Number(b), Value::Number(a)) => $self.push(Value::Number(a $op b)),
                 _ => {
                     $self.runtime_error("Operands must be numbers.");
                     return InterpretResult::RuntimeError;
