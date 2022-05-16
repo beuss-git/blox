@@ -115,9 +115,11 @@ impl VM {
         println!("{}", self.chunk.disassemble_instruction(self.pc));
     }
 
+    #[allow(dead_code)]
     fn last_stack_value(&self) -> Value {
         self.stack.last().expect("Stack is empty").clone()
     }
+    #[allow(dead_code)]
     fn stack_empty(&self) -> bool {
         self.stack.is_empty()
     }
@@ -145,6 +147,21 @@ mod tests {
 
         vm.interpret("1+3*4".to_string());
         assert_eq!(vm.last_stack_value(), Value::Number(13.0));
+
+        vm = new_vm();
+        vm.interpret("(1+3*3)/5+(4*3)".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Number(14.0));
+    }
+
+    #[test]
+    fn test_divide() {
+        let mut vm = new_vm();
+
+        vm.interpret("2/2".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Number(1.0));
+
+        vm.interpret("2/2".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Number(1.0));
     }
 
     #[test]
