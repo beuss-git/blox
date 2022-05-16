@@ -57,6 +57,13 @@ impl VM {
                 opcode::OP_ADD => match (self.pop(), self.pop()) {
                     (Value::Number(b), Value::Number(a)) => self.push(Value::Number(a + b)),
                     (Value::String(b), Value::String(a)) => self.push(Value::String(a + &b)),
+                    (Value::Number(b), Value::String(a)) => {
+                        self.push(Value::String(a + &b.to_string()))
+                    }
+                    (Value::Boolean(b), Value::String(a)) => {
+                        self.push(Value::String(a + &b.to_string()))
+                    }
+                    (Value::Nil, Value::String(b)) => self.push(Value::String(b + "nil")),
                     _ => {
                         self.runtime_error("Operands must be numbers.");
                         return InterpretResult::RuntimeError;
