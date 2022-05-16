@@ -349,6 +349,34 @@ mod tests {
         vm = new_vm();
         vm.interpret("1.0 == 2.0".to_string());
         assert_eq!(vm.last_stack_value(), Value::Boolean(false));
+
+        vm = new_vm();
+        vm.interpret("true == true".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Boolean(true));
+
+        vm = new_vm();
+        vm.interpret("false == false".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Boolean(true));
+
+        vm = new_vm();
+        vm.interpret("true == false".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Boolean(false));
+
+        vm = new_vm();
+        vm.interpret("false == true".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Boolean(false));
+
+        vm = new_vm();
+        vm.interpret(r#""str" == "str""#.to_string());
+        assert_eq!(vm.last_stack_value(), Value::Boolean(true));
+
+        vm = new_vm();
+        vm.interpret(r#""str" == "st2""#.to_string());
+        assert_eq!(vm.last_stack_value(), Value::Boolean(false));
+
+        vm = new_vm();
+        vm.interpret(r#""str" == "st""#.to_string());
+        assert_eq!(vm.last_stack_value(), Value::Boolean(false));
     }
 
     #[test]
