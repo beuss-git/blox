@@ -154,11 +154,21 @@ impl<'a> Compiler<'a> {
         }
     }
 
+    fn literal(&mut self) {
+        match self.parser.previous.kind {
+            TokenKind::False => self.emit_byte(opcode::OP_FALSE),
+            TokenKind::True => self.emit_byte(opcode::OP_TRUE),
+            TokenKind::Nil => self.emit_byte(opcode::OP_NIL),
+            _ => (),
+        }
+    }
+
     fn parse_prefix(&mut self) {
         match self.parser.previous.kind {
             TokenKind::LeftParen => self.grouping(),
             TokenKind::Minus => self.unary(),
             TokenKind::Number => self.number(),
+            TokenKind::True | TokenKind::False | TokenKind::Nil => self.literal(),
             _ => {
                 self.error("Expect prefix expression.");
                 return;
@@ -213,7 +223,6 @@ impl<'a> From<TokenKind> for Precedence {
     fn from(kind: TokenKind) -> Self {
         match kind {
             TokenKind::Minus | TokenKind::Plus => Precedence::Term,
-
             TokenKind::Slash | TokenKind::Star => Precedence::Factor,
             _ => Precedence::None,
         }

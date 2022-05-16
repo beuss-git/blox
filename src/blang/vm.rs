@@ -68,6 +68,9 @@ impl VM {
                     let constant: Value = self.read_constant();
                     self.push(constant);
                 }
+                opcode::OP_NIL => self.push(Value::Nil),
+                opcode::OP_TRUE => self.push(Value::Boolean(true)),
+                opcode::OP_FALSE => self.push(Value::Boolean(false)),
                 _ => {
                     let op = self.read_byte();
                     self.runtime_error(format!("Unknown opcode: {}", op).as_str());

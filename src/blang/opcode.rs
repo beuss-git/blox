@@ -35,6 +35,9 @@ macro_rules! ops {
 // and I store the code as pure u8
 ops!(
     OP_CONSTANT,
+    OP_NIL,
+    OP_TRUE,
+    OP_FALSE,
     OP_ADD,
     OP_SUBTRACT,
     OP_MULTIPLY,
@@ -44,6 +47,7 @@ ops!(
 );
 
 /// Returns the name for the given opcode
+// TODO: make safe
 pub fn get_name(code: u8) -> &'static str {
     OPCODES[code as usize]
 }
