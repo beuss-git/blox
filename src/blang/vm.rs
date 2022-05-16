@@ -203,6 +203,26 @@ mod tests {
         vm = new_vm();
         vm.interpret(r#""one" + "two""#.to_string());
         assert_eq!(vm.last_stack_value(), Value::String("onetwo".to_string()));
+
+        vm = new_vm();
+        vm.interpret(r#""one" + 2"#.to_string());
+        assert_eq!(vm.last_stack_value(), Value::String("one2".to_string()));
+
+        vm = new_vm();
+        vm.interpret(r#""one" + 2.1"#.to_string());
+        assert_eq!(vm.last_stack_value(), Value::String("one2.1".to_string()));
+
+        vm = new_vm();
+        vm.interpret(r#""one" + true"#.to_string());
+        assert_eq!(vm.last_stack_value(), Value::String("onetrue".to_string()));
+
+        vm = new_vm();
+        vm.interpret(r#""one" + false"#.to_string());
+        assert_eq!(vm.last_stack_value(), Value::String("onefalse".to_string()));
+
+        vm = new_vm();
+        vm.interpret(r#""one" + nil"#.to_string());
+        assert_eq!(vm.last_stack_value(), Value::String("onenil".to_string()));
     }
     #[test]
     fn test_subtraction() {
