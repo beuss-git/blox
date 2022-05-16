@@ -113,11 +113,13 @@ impl Chunk {
             opcode::OP_DIVIDE => simple_instruction(name, self, offset),
             opcode::OP_NOT => simple_instruction(name, self, offset),
             opcode::OP_NEGATE => simple_instruction(name, self, offset),
+            opcode::OP_PRINT => simple_instruction(name, self, offset),
             opcode::OP_RETURN => simple_instruction(name, self, offset),
             opcode::OP_CONSTANT => constant_instruction(name, self, offset),
             opcode::OP_NIL => simple_instruction(name, self, offset),
             opcode::OP_TRUE => simple_instruction(name, self, offset),
             opcode::OP_FALSE => simple_instruction(name, self, offset),
+            opcode::OP_POP => simple_instruction(name, self, offset),
             _ => {
                 println!("Invalid opcode {}", self.code[offset] as u8);
                 offset + 1

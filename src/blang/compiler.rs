@@ -30,9 +30,13 @@ impl<'a> Compiler<'a> {
     pub fn compile(&mut self) -> bool {
         self.parser.had_error = false;
         self.parser.panic_mode = false;
+        // Consume the first token.
         self.advance();
-        self.expression();
-        self.consume(TokenKind::Eof, "Expect end of expression.");
+
+        while !self.match_token(TokenKind::Eof) {
+            self.declaration();
+        }
+
         self.end_compiler();
 
         self.current_chunk.disassemble_chunk("code");
@@ -80,6 +84,18 @@ impl<'a> Compiler<'a> {
             return;
         }
         self.error_at_current(message);
+    }
+
+    fn check(&mut self, kind: TokenKind) -> bool {
+        self.parser.current.kind == kind
+    }
+
+    fn match_token(&mut self, kind: TokenKind) -> bool {
+        if !self.check(kind) {
+            return false;
+        }
+        self.advance();
+        true
     }
 
     fn emit_byte(&mut self, byte: u8) {
@@ -134,6 +150,52 @@ impl<'a> Compiler<'a> {
         //self.parser.binary_expression();
         self.parse_expression(Precedence::Assignment);
     }
+
+    fn expression_statement(&mut self) {
+        self.expression();
+        self.consume(TokenKind::Semicolon, "Expect ';' after expression.");
+        self.emit_byte(opcode::OP_POP);
+    }
+
+    fn print_statement(&mut self) {
+        self.expression();
+        self.consume(TokenKind::Semicolon, "Expect ';' after value.");
+        self.emit_byte(opcode::OP_PRINT);
+    }
+
+    fn synchronize(&mut self) {
+        self.parser.panic_mode = false;
+        while self.parser.current.kind != TokenKind::Eof {
+            if self.parser.previous.kind == TokenKind::Semicolon {
+                return;
+            }
+            match self.parser.current.kind {
+                TokenKind::Class
+                | TokenKind::Fun
+                | TokenKind::Var
+                | TokenKind::For
+                | TokenKind::If
+                | TokenKind::While
+                | TokenKind::Print
+                | TokenKind::Return => return,
+                _ => {}
+            }
+            self.advance();
+        }
+    }
+
+    fn statement(&mut self) {
+        if self.match_token(TokenKind::Print) {
+            self.print_statement();
+        } else {
+            self.expression_statement();
+        }
+    }
+
+    fn declaration(&mut self) {
+        self.statement();
+    }
+
     fn unary(&mut self) {
         let operator_kind = self.parser.previous.kind;
 

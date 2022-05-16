@@ -10,6 +10,7 @@ pub struct VM {
     chunk: Chunk,
     pc: usize,
     stack: Vec<Value>,
+    last_value: Option<Value>,
 }
 
 macro_rules! binary_op {
@@ -29,6 +30,7 @@ impl VM {
             chunk,
             pc: 0,
             stack: Vec::new(),
+            last_value: None,
         }
     }
     pub fn interpret(&mut self, source: String) -> InterpretResult {
@@ -86,6 +88,9 @@ impl VM {
                         return InterpretResult::RuntimeError;
                     }
                 },
+                opcode::OP_PRINT => {
+                    println!("{}", self.pop());
+                }
                 opcode::OP_RETURN => {
                     return InterpretResult::Ok;
                 }
@@ -96,6 +101,9 @@ impl VM {
                 opcode::OP_NIL => self.push(Value::Nil),
                 opcode::OP_TRUE => self.push(Value::Boolean(true)),
                 opcode::OP_FALSE => self.push(Value::Boolean(false)),
+                opcode::OP_POP => {
+                    self.last_value = Some(self.pop());
+                }
                 opcode::OP_EQUAL => match (self.pop(), self.pop()) {
                     (a, b) => self.push(Value::Boolean(Value::is_same(a, b))),
                 },
@@ -137,12 +145,8 @@ impl VM {
     }
 
     #[allow(dead_code)]
-    fn last_stack_value(&self) -> Value {
-        self.stack.last().expect("Stack is empty").clone()
-    }
-    #[allow(dead_code)]
-    fn stack_empty(&self) -> bool {
-        self.stack.is_empty()
+    fn last_value(&self) -> Option<Value> {
+        self.last_value.clone()
     }
 }
 
