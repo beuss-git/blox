@@ -56,9 +56,7 @@ impl VM {
                 //opcode::OP_ADD => binary_op!(self, Number, +),
                 opcode::OP_ADD => match (self.pop(), self.pop()) {
                     (Value::Number(b), Value::Number(a)) => self.push(Value::Number(a + b)),
-                    (Value::String(b), Value::String(a)) => self.push(
-                        Value::String(a + &b)
-                    ),
+                    (Value::String(b), Value::String(a)) => self.push(Value::String(a + &b)),
                     _ => {
                         self.runtime_error("Operands must be numbers.");
                         return InterpretResult::RuntimeError;
@@ -178,6 +176,26 @@ mod tests {
         vm = new_vm();
         vm.interpret("4+3".to_string());
         assert_eq!(vm.last_stack_value(), Value::Number(7.0));
+    }
+    #[test]
+    fn test_string_concatenation() {
+        let mut vm = new_vm();
+        vm.interpret(r#""Hello" + " " + "World!""#.to_string());
+        assert_eq!(
+            vm.last_stack_value(),
+            Value::String("Hello World!".to_string())
+        );
+
+        vm = new_vm();
+        vm.interpret(r#""Hel" + "lo" + ", " + "Wo" + "rld!""#.to_string());
+        assert_eq!(
+            vm.last_stack_value(),
+            Value::String("Hello, World!".to_string())
+        );
+
+        vm = new_vm();
+        vm.interpret(r#""one" + "two""#.to_string());
+        assert_eq!(vm.last_stack_value(), Value::String("onetwo".to_string()));
     }
     #[test]
     fn test_subtraction() {
@@ -316,7 +334,6 @@ mod tests {
         vm = new_vm();
         vm.interpret("5 != 5".to_string());
         assert_eq!(vm.last_stack_value(), Value::Boolean(false));
-
 
         vm = new_vm();
         vm.interpret("true != true".to_string());
