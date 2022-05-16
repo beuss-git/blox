@@ -10,6 +10,16 @@ pub enum Value {
     Number(f64),
 }
 
+impl Value {
+    pub fn is_falsey(&self) -> bool {
+        match self {
+            Value::Nil => true,
+            Value::Boolean(b) => !b,
+            _ => false,
+        }
+    }
+}
+
 pub struct ValueArray {
     values: Vec<Value>,
 }

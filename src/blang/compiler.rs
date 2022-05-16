@@ -134,6 +134,7 @@ impl<'a> Compiler<'a> {
 
         // Emit the operator instruction
         match operator_kind {
+            TokenKind::Bang => self.emit_byte(opcode::OP_NOT),
             TokenKind::Minus => self.emit_byte(opcode::OP_NEGATE),
             _ => (),
         }
@@ -166,7 +167,7 @@ impl<'a> Compiler<'a> {
     fn parse_prefix(&mut self) {
         match self.parser.previous.kind {
             TokenKind::LeftParen => self.grouping(),
-            TokenKind::Minus => self.unary(),
+            TokenKind::Minus | TokenKind::Bang => self.unary(),
             TokenKind::Number => self.number(),
             TokenKind::True | TokenKind::False | TokenKind::Nil => self.literal(),
             _ => {

@@ -54,10 +54,17 @@ impl VM {
                 opcode::OP_SUBTRACT => binary_op!(self, -),
                 opcode::OP_MULTIPLY => binary_op!(self, *),
                 opcode::OP_DIVIDE => binary_op!(self, /),
+                opcode::OP_NOT => match self.stack.pop() {
+                    Some(x) => self.push(Value::Boolean(x.is_falsey())),
+                    _ => {
+                        self.runtime_error("Stack is empty.");
+                        return InterpretResult::RuntimeError;
+                    }
+                },
                 opcode::OP_NEGATE => match self.stack.pop() {
                     Some(Value::Number(n)) => self.stack.push(Value::Number(-n)),
                     _ => {
-                        self.runtime_error("Operand must be a number.");
+                        self.runtime_error("Stack is empty");
                         return InterpretResult::RuntimeError;
                     }
                 },
