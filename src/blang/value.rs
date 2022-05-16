@@ -72,15 +72,28 @@ mod tests {
     #[test]
     fn test_value_array() {
         let mut array = ValueArray::new();
+
         array.add_value(Value::Number(1.0));
         array.add_value(Value::Number(2.0));
         array.add_value(Value::Number(3.0));
         assert_eq!(array.get_value(0), Value::Number(1.0));
+        assert_eq!(array.get_value(1), Value::Number(2.0));
+        assert_eq!(array.get_value(2), Value::Number(3.0));
         assert_eq!(array.len(), 3);
+
+        array.add_value(Value::Boolean(true));
+        array.add_value(Value::Boolean(false));
+        assert_eq!(array.get_value(3), Value::Boolean(true));
+        assert_eq!(array.get_value(4), Value::Boolean(false));
+        assert_eq!(array.len(), 5);
+
+        array.add_value(Value::Nil);
+        assert_eq!(array.get_value(5), Value::Nil);
+        assert_eq!(array.len(), 6);
     }
 
     #[test]
     fn test_value_size() {
-        assert_eq!(size_of::<Value>(), 8);
+        assert_eq!(size_of::<Value>(), 16);
     }
 }
