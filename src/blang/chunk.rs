@@ -48,7 +48,7 @@ impl Chunk {
     }
 
     // https://www.csfieldguide.org.nz/en/chapters/coding-compression/run-length-encoding/
-    fn get_line(&self, offset: usize) -> usize {
+    pub fn get_line(&self, offset: usize) -> usize {
         let mut total: usize = 0;
         for (line, length) in self.line_data.iter().enumerate() {
             total += *length as usize;

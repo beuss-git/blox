@@ -12,6 +12,17 @@ pub struct VM {
     stack: Vec<Value>,
 }
 
+macro_rules! binary_op {
+        ($self:ident, $op:tt) => {
+            match ($self.pop(), $self.pop()) {
+                (Value::Number(a), Value::Number(b)) => $self.push(Value::Number(a $op b)),
+                _ => {
+                    $self.runtime_error("Operands must be numbers.");
+                    return InterpretResult::RuntimeError;
+                }
+            }
+        };
+}
 impl VM {
     pub fn new(chunk: Chunk) -> Self {
         Self {
@@ -39,26 +50,16 @@ impl VM {
             }
             // Decode the instruction
             match self.read_byte() {
-                opcode::OP_ADD => self.binary_op(|a, b| match (a, b) {
-                    (Value::Number(a), Value::Number(b)) => Value::Number(a + b),
-                    _ => Value::Nil, // TODO: Report error
-                }),
-                opcode::OP_SUBTRACT => self.binary_op(|a, b| match (a, b) {
-                    (Value::Number(a), Value::Number(b)) => Value::Number(a - b),
-                    _ => Value::Nil, // TODO: Report error
-                }),
-                opcode::OP_MULTIPLY => self.binary_op(|a, b| match (a, b) {
-                    (Value::Number(a), Value::Number(b)) => Value::Number(a * b),
-                    _ => Value::Nil, // TODO: Report error
-                }),
-                opcode::OP_DIVIDE => self.binary_op(|a, b| match (a, b) {
-                    (Value::Number(a), Value::Number(b)) => Value::Number(a / b),
-                    _ => Value::Nil, // TODO: Report error
-                }),
+                opcode::OP_ADD => binary_op!(self, +),
+                opcode::OP_SUBTRACT => binary_op!(self, -),
+                opcode::OP_MULTIPLY => binary_op!(self, *),
+                opcode::OP_DIVIDE => binary_op!(self, /),
                 opcode::OP_NEGATE => match self.stack.pop() {
                     Some(Value::Number(n)) => self.stack.push(Value::Number(-n)),
-                    // TODO: Report error
-                    _ => return InterpretResult::RuntimeError,
+                    _ => {
+                        self.runtime_error("Operand must be a number.");
+                        return InterpretResult::RuntimeError;
+                    }
                 },
                 opcode::OP_RETURN => {
                     self.pop().print();
@@ -101,11 +102,10 @@ impl VM {
     fn pop(&mut self) -> Value {
         self.stack.pop().expect("Stack is empty")
     }
-    fn binary_op(&mut self, op: fn(Value, Value) -> Value) {
-        let right = self.pop();
-        let left = self.pop();
-        let result = op(left, right);
-        self.push(result);
+
+    fn runtime_error(&self, message: &str) {
+        println!("[line {}] {}", self.chunk.get_line(self.pc), message);
+        println!("{}", self.chunk.disassemble_instruction(self.pc));
     }
 }
 
