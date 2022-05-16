@@ -1,3 +1,5 @@
+use std::{cell::RefCell, collections::HashMap};
+
 use super::{
     chunk::Chunk,
     compiler::Compiler,
@@ -5,12 +7,13 @@ use super::{
     value::{Printer, Value},
 };
 
-const DEBUG_TRACE_EXECUTION: bool = true;
+const DEBUG_TRACE_EXECUTION: bool = false;
 pub struct VM {
     chunk: Chunk,
     pc: usize,
     stack: Vec<Value>,
     last_value: Option<Value>,
+    globals: HashMap<String, Value>,
 }
 
 macro_rules! binary_op {
@@ -31,6 +34,7 @@ impl VM {
             pc: 0,
             stack: Vec::new(),
             last_value: None,
+            globals: HashMap::new(),
         }
     }
     pub fn interpret(&mut self, source: String) -> InterpretResult {
@@ -103,6 +107,22 @@ impl VM {
                 opcode::OP_FALSE => self.push(Value::Boolean(false)),
                 opcode::OP_POP => {
                     self.last_value = Some(self.pop());
+                }
+                opcode::OP_GET_GLOBAL => {
+                    let name = self.read_constant();
+                    let value = self.globals.get(&name.to_string()).cloned();
+                    if let Some(value) = value {
+                        self.push(value);
+                    } else {
+                        self.runtime_error(&format!("Undefined variable '{}'.", name));
+                        return InterpretResult::RuntimeError;
+                    }
+                }
+                opcode::OP_DEFINE_GLOBAL => {
+                    // TODO: Check if it is a string
+                    let name = self.read_constant();
+                    let value = self.pop();
+                    self.globals.insert(name.to_string(), value);
                 }
                 opcode::OP_EQUAL => match (self.pop(), self.pop()) {
                     (a, b) => self.push(Value::Boolean(Value::is_same(a, b))),

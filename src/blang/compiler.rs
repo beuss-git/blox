@@ -1,3 +1,4 @@
+use super::lexer::Token;
 use super::opcode;
 use super::value::Value;
 use super::{chunk::Chunk, lexer::Lexer, lexer::TokenKind, parser::Parser};
@@ -39,7 +40,7 @@ impl<'a> Compiler<'a> {
 
         self.end_compiler();
 
-        self.current_chunk.disassemble_chunk("code");
+        //self.current_chunk.disassemble_chunk("code");
 
         !self.parser.had_error
     }
@@ -116,13 +117,14 @@ impl<'a> Compiler<'a> {
         self.emit_byte(opcode::OP_RETURN);
     }
 
-    fn emit_constant(&mut self, constant: Value) {
+    fn emit_constant(&mut self, constant: Value) -> u8 {
         let constant_index = self
             .current_chunk
             .add_constant(constant, self.parser.previous.line);
         if constant_index > u8::MAX as usize {
             self.error("Too many constants in one chunk.");
         }
+        constant_index as u8
     }
 
     fn end_compiler(&mut self) {
@@ -135,6 +137,13 @@ impl<'a> Compiler<'a> {
         let trimmed = &lexeme[1..lexeme.len() - 1];
 
         self.emit_constant(Value::String(trimmed.to_string()));
+    }
+    fn named_variable(&mut self, name: Token) {
+        let constant_index = self.identifier_constant(name);
+        self.emit_bytes(opcode::OP_GET_GLOBAL, constant_index);
+    }
+    fn variable(&mut self) {
+        self.named_variable(self.parser.previous);
     }
     fn number(&mut self) {
         let token = &self.parser.previous;
@@ -149,6 +158,22 @@ impl<'a> Compiler<'a> {
     fn expression(&mut self) {
         //self.parser.binary_expression();
         self.parse_expression(Precedence::Assignment);
+    }
+
+    fn var_declaration(&mut self) {
+        let global = self.parse_variable("Expect variable name.");
+        if self.match_token(TokenKind::Equal) {
+            // Consume the expression
+            self.expression();
+        } else {
+            // If no explicit assignment is made, use the default value nil
+            self.emit_byte(opcode::OP_NIL);
+        }
+        self.consume(
+            TokenKind::Semicolon,
+            "Expect ';' after variable declaration.",
+        );
+        self.define_variable(global);
     }
 
     fn expression_statement(&mut self) {
@@ -193,7 +218,11 @@ impl<'a> Compiler<'a> {
     }
 
     fn declaration(&mut self) {
-        self.statement();
+        if self.match_token(TokenKind::Var) {
+            self.var_declaration();
+        } else {
+            self.statement();
+        }
     }
 
     fn unary(&mut self) {
@@ -248,6 +277,7 @@ impl<'a> Compiler<'a> {
             TokenKind::Number => self.number(),
             TokenKind::String => self.string(),
             TokenKind::True | TokenKind::False | TokenKind::Nil => self.literal(),
+            TokenKind::Identifier => self.variable(),
             _ => {
                 self.error("Expect prefix expression.");
                 return;
@@ -286,6 +316,22 @@ impl<'a> Compiler<'a> {
             self.advance();
             self.parse_infix();
         }
+    }
+
+    fn identifier_constant(&mut self, token: Token) -> u8 {
+        let lexeme = self.lexer.get_lexeme(&token);
+
+        self.emit_constant(Value::String(lexeme))
+    }
+
+    fn parse_variable(&mut self, message: &str) -> u8 {
+        self.consume(TokenKind::Identifier, message);
+
+        self.identifier_constant(self.parser.previous)
+    }
+
+    fn define_variable(&mut self, global: u8) {
+        self.emit_bytes(opcode::OP_DEFINE_GLOBAL, global);
     }
 }
 
