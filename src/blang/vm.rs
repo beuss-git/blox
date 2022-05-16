@@ -39,14 +39,27 @@ impl VM {
             }
             // Decode the instruction
             match self.read_byte() {
-                opcode::OP_ADD => self.binary_op(|a, b| a + b),
-                opcode::OP_SUBTRACT => self.binary_op(|a, b| a - b),
-                opcode::OP_MULTIPLY => self.binary_op(|a, b| a * b),
-                opcode::OP_DIVIDE => self.binary_op(|a, b| a / b),
-                opcode::OP_NEGATE => {
-                    let value = -self.pop();
-                    self.push(value);
-                }
+                opcode::OP_ADD => self.binary_op(|a, b| match (a, b) {
+                    (Value::Number(a), Value::Number(b)) => Value::Number(a + b),
+                    _ => Value::Nil, // TODO: Report error
+                }),
+                opcode::OP_SUBTRACT => self.binary_op(|a, b| match (a, b) {
+                    (Value::Number(a), Value::Number(b)) => Value::Number(a - b),
+                    _ => Value::Nil, // TODO: Report error
+                }),
+                opcode::OP_MULTIPLY => self.binary_op(|a, b| match (a, b) {
+                    (Value::Number(a), Value::Number(b)) => Value::Number(a * b),
+                    _ => Value::Nil, // TODO: Report error
+                }),
+                opcode::OP_DIVIDE => self.binary_op(|a, b| match (a, b) {
+                    (Value::Number(a), Value::Number(b)) => Value::Number(a / b),
+                    _ => Value::Nil, // TODO: Report error
+                }),
+                opcode::OP_NEGATE => match self.stack.pop() {
+                    Some(Value::Number(n)) => self.stack.push(Value::Number(-n)),
+                    // TODO: Report error
+                    _ => return InterpretResult::RuntimeError,
+                },
                 opcode::OP_RETURN => {
                     self.pop().print();
                     println!();
