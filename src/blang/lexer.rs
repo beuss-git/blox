@@ -4,7 +4,7 @@ pub struct Lexer {
     pub start: usize,
     pub current: usize,
     pub line: usize,
-    keywords: HashMap<&'static str, TokenType>,
+    keywords: HashMap<&'static str, TokenKind>,
 }
 // TODO: move this
 fn is_alpha(c: char) -> bool {
@@ -23,25 +23,25 @@ impl Lexer {
             current: 0,
             line: 1,
             keywords: HashMap::from([
-                ("and", TokenType::And),
-                ("or", TokenType::Or),
-                ("class", TokenType::Class),
-                ("super", TokenType::Super),
-                ("this", TokenType::This),
-                ("if", TokenType::If),
-                ("else", TokenType::Else),
-                ("true", TokenType::True),
-                ("false", TokenType::False),
-                ("fun", TokenType::Fun),
-                ("return", TokenType::Return),
-                ("for", TokenType::For),
-                ("while", TokenType::While),
-                ("break", TokenType::Break),
-                ("continue", TokenType::Continue),
-                ("var", TokenType::Var),
-                ("nil", TokenType::Nil),
-                ("print", TokenType::Print),
-                ("sleep", TokenType::Sleep),
+                ("and", TokenKind::And),
+                ("or", TokenKind::Or),
+                ("class", TokenKind::Class),
+                ("super", TokenKind::Super),
+                ("this", TokenKind::This),
+                ("if", TokenKind::If),
+                ("else", TokenKind::Else),
+                ("true", TokenKind::True),
+                ("false", TokenKind::False),
+                ("fun", TokenKind::Fun),
+                ("return", TokenKind::Return),
+                ("for", TokenKind::For),
+                ("while", TokenKind::While),
+                ("break", TokenKind::Break),
+                ("continue", TokenKind::Continue),
+                ("var", TokenKind::Var),
+                ("nil", TokenKind::Nil),
+                ("print", TokenKind::Print),
+                ("sleep", TokenKind::Sleep),
             ]),
         }
     }
@@ -58,7 +58,7 @@ impl Lexer {
 
         // Check if EOF
         if self.is_at_end() {
-            return Ok(self.make_token(TokenType::Eof));
+            return Ok(self.make_token(TokenKind::Eof));
         }
 
         let c = self.advance();
@@ -72,29 +72,29 @@ impl Lexer {
         }
 
         match c {
-            '(' => Ok(self.make_token(TokenType::LeftParen)),
-            ')' => Ok(self.make_token(TokenType::RightParen)),
-            '{' => Ok(self.make_token(TokenType::LeftBrace)),
-            '}' => Ok(self.make_token(TokenType::RightBrace)),
-            ';' => Ok(self.make_token(TokenType::Semicolon)),
-            ',' => Ok(self.make_token(TokenType::Comma)),
-            '.' => Ok(self.make_token(TokenType::Dot)),
-            '-' => Ok(self.make_token(TokenType::Minus)),
-            '+' => Ok(self.make_token(TokenType::Plus)),
-            '/' => Ok(self.make_token(TokenType::Slash)),
-            '*' => Ok(self.make_token(TokenType::Star)),
+            '(' => Ok(self.make_token(TokenKind::LeftParen)),
+            ')' => Ok(self.make_token(TokenKind::RightParen)),
+            '{' => Ok(self.make_token(TokenKind::LeftBrace)),
+            '}' => Ok(self.make_token(TokenKind::RightBrace)),
+            ';' => Ok(self.make_token(TokenKind::Semicolon)),
+            ',' => Ok(self.make_token(TokenKind::Comma)),
+            '.' => Ok(self.make_token(TokenKind::Dot)),
+            '-' => Ok(self.make_token(TokenKind::Minus)),
+            '+' => Ok(self.make_token(TokenKind::Plus)),
+            '/' => Ok(self.make_token(TokenKind::Slash)),
+            '*' => Ok(self.make_token(TokenKind::Star)),
 
-            '!' => Ok(self.make_token_compound('=', TokenType::BangEqual, TokenType::Bang)),
-            '=' => Ok(self.make_token_compound('=', TokenType::EqualEqual, TokenType::Equal)),
-            '<' => Ok(self.make_token_compound('=', TokenType::LessEqual, TokenType::Less)),
-            '>' => Ok(self.make_token_compound('=', TokenType::GreaterEqual, TokenType::Greater)),
+            '!' => Ok(self.make_token_compound('=', TokenKind::BangEqual, TokenKind::Bang)),
+            '=' => Ok(self.make_token_compound('=', TokenKind::EqualEqual, TokenKind::Equal)),
+            '<' => Ok(self.make_token_compound('=', TokenKind::LessEqual, TokenKind::Less)),
+            '>' => Ok(self.make_token_compound('=', TokenKind::GreaterEqual, TokenKind::Greater)),
 
             '"' => self.string(),
             _ => Err(LexerError::new("Unexpected character", self.line)),
         }
     }
 
-    fn make_token_compound(&mut self, c: char, a: TokenType, b: TokenType) -> Token {
+    fn make_token_compound(&mut self, c: char, a: TokenKind, b: TokenKind) -> Token {
         if self.match_char(c) {
             self.make_token(a)
         } else {
@@ -102,7 +102,7 @@ impl Lexer {
         }
     }
 
-    fn make_token(&self, token_type: TokenType) -> Token {
+    fn make_token(&self, token_type: TokenKind) -> Token {
         let mut token = Token::new(token_type);
         token.start = self.start;
         token.length = self.current - self.start;
@@ -140,7 +140,7 @@ impl Lexer {
         let text = &self.source[self.start..self.current];
         match self.keywords.get(text) {
             Some(token_type) => self.make_token(*token_type),
-            None => self.make_token(TokenType::Identifier),
+            None => self.make_token(TokenKind::Identifier),
         }
     }
 
@@ -161,7 +161,7 @@ impl Lexer {
         // Closing quote
         self.advance();
 
-        Ok(self.make_token(TokenType::String))
+        Ok(self.make_token(TokenKind::String))
     }
 
     fn number(&mut self) -> Token {
@@ -177,7 +177,7 @@ impl Lexer {
             }
         }
 
-        self.make_token(TokenType::Number)
+        self.make_token(TokenKind::Number)
     }
 
     fn get_char(&self, index: usize) -> char {
@@ -232,17 +232,18 @@ impl LexerError {
     }
 }
 
+#[derive(Copy, Clone)]
 pub struct Token {
-    pub t_type: TokenType,
+    pub kind: TokenKind,
     pub start: usize,
     pub length: usize,
     pub line: usize,
 }
 
 impl Token {
-    pub fn new(t_type: TokenType) -> Self {
+    pub fn new(kind: TokenKind) -> Self {
         Self {
-            t_type,
+            kind: kind,
             start: 0,
             length: 0,
             line: 0,
@@ -251,7 +252,7 @@ impl Token {
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub enum TokenType {
+pub enum TokenKind {
     // Single-character tokens
     LeftParen,
     RightParen,
