@@ -117,7 +117,7 @@ impl Lexer {
         }
     }
     fn skip_whitespace(&mut self) {
-        while !self.is_at_end() && self.peek().is_whitespace() {
+        while !self.is_at_end() && (self.peek().is_whitespace() || self.peek() == '/') {
             match self.peek() {
                 '\n' => self.line += 1, // Increment line count
                 '/' => {
