@@ -48,6 +48,7 @@ impl VM {
                 self.chunk.disassemble_instruction(self.pc);
                 //.disassemble_instruction(self.pc - self.chunk.code.len());
             }
+            // TODO: make operations such as != >= and <= a single instruction
             // Decode the instruction
             match self.read_byte() {
                 opcode::OP_GREATER => binary_op!(self, Boolean, >),
@@ -305,6 +306,35 @@ mod tests {
         vm = new_vm();
         vm.interpret("5 != 5".to_string());
         assert_eq!(vm.last_stack_value(), Value::Boolean(false));
+
+
+        vm = new_vm();
+        vm.interpret("true != true".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Boolean(false));
+
+        vm = new_vm();
+        vm.interpret("false != false".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Boolean(false));
+
+        vm = new_vm();
+        vm.interpret("true != false".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Boolean(true));
+
+        vm = new_vm();
+        vm.interpret("false != true".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Boolean(true));
+
+        vm = new_vm();
+        vm.interpret(r#""str" != "str""#.to_string());
+        assert_eq!(vm.last_stack_value(), Value::Boolean(false));
+
+        vm = new_vm();
+        vm.interpret(r#""str" != "st2""#.to_string());
+        assert_eq!(vm.last_stack_value(), Value::Boolean(true));
+
+        vm = new_vm();
+        vm.interpret(r#""str" != "st""#.to_string());
+        assert_eq!(vm.last_stack_value(), Value::Boolean(true));
     }
 
     #[test]
