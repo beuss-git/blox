@@ -112,6 +112,11 @@ impl<'a> Compiler<'a> {
     fn end_compiler(&mut self) {
         self.emit_return();
     }
+    fn string(&mut self) {
+        let token = &self.parser.previous;
+        let lexeme = self.lexer.get_lexeme(token);
+        self.emit_constant(Value::String(lexeme));
+    }
     fn number(&mut self) {
         let token = &self.parser.previous;
         let lexeme = self.lexer.get_lexeme(token);
@@ -175,6 +180,7 @@ impl<'a> Compiler<'a> {
             TokenKind::LeftParen => self.grouping(),
             TokenKind::Minus | TokenKind::Bang => self.unary(),
             TokenKind::Number => self.number(),
+            TokenKind::String => self.string(),
             TokenKind::True | TokenKind::False | TokenKind::Nil => self.literal(),
             _ => {
                 self.error("Expect prefix expression.");

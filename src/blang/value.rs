@@ -1,11 +1,12 @@
 use core::fmt;
 use std::str::FromStr;
 
-#[derive(PartialEq, Debug, Copy, Clone)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum Value {
     Boolean(bool),
     Nil,
     Number(f64),
+    String(String),
 }
 
 impl Value {
@@ -21,6 +22,7 @@ impl Value {
             (Value::Boolean(a), Value::Boolean(b)) => a == b,
             (Value::Nil, Value::Nil) => true,
             (Value::Number(a), Value::Number(b)) => a == b,
+            (Value::String(a), Value::String(b)) => a == b,
             _ => false,
         }
     }
@@ -48,7 +50,7 @@ impl ValueArray {
         self.values.push(value);
     }
     pub fn get_value(&self, index: usize) -> Value {
-        self.values[index]
+        self.values[index].clone()
     }
     pub fn len(&self) -> usize {
         self.values.len()
@@ -61,6 +63,7 @@ impl fmt::Display for Value {
             Value::Boolean(b) => write!(f, "{}", b),
             Value::Nil => write!(f, "nil"),
             Value::Number(n) => write!(f, "{}", n),
+            Value::String(s) => write!(f, "{}", s),
         }
     }
 }
@@ -72,9 +75,10 @@ impl FromStr for Value {
             "true" => Ok(Value::Boolean(true)),
             "false" => Ok(Value::Boolean(false)),
             "nil" => Ok(Value::Nil),
-            _ => Ok(Value::Number(
-                s.parse::<f64>().expect("Failed to parse number"),
-            )),
+            s => Ok(match s.parse::<f64>() {
+                Ok(n) => Value::Number(n),
+                Err(_) => Value::String(s.to_string()),
+            }),
         }
     }
 }
@@ -110,7 +114,7 @@ mod tests {
 
     #[test]
     fn test_value_size() {
-        assert_eq!(size_of::<Value>(), 16);
+        assert_eq!(size_of::<Value>(), 32);
     }
 
     #[test]
