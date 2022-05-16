@@ -154,6 +154,7 @@ impl<'a> Compiler<'a> {
 
         self.parse_expression(precedence);
 
+        // TODO: make operations such as != >= and <= a single instruction
         match operator_kind {
             TokenKind::BangEqual => self.emit_bytes(opcode::OP_EQUAL, opcode::OP_NOT),
             TokenKind::EqualEqual => self.emit_byte(opcode::OP_EQUAL),
