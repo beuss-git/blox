@@ -53,6 +53,7 @@ impl Lexer {
     pub fn scan_token(&mut self) -> Result<Token, LexerError> {
         // Advance to the next valid character
         self.skip_whitespace();
+        self.skip_comment();
 
         self.start = self.current;
 
@@ -63,42 +64,59 @@ impl Lexer {
 
         let c = self.advance();
 
-        if is_alpha(c) {
-            return Ok(self.identifier());
+        let kind_res = self.match_token(c);
+        match kind_res {
+            Ok(kind) => Ok(match kind {
+                TokenKind::String => match self.string() {
+                    Ok(t) => t,
+                    Err(e) => return Err(e),
+                },
+                TokenKind::Identifier => self.identifier(),
+                TokenKind::Number => self.number(),
+                _ => self.make_token(kind),
+            }),
+            Err(err) => Err(err),
         }
-        // We only support decimals and integers
-        if is_digit(c) {
-            return Ok(self.number());
+        /*if token.kind != expected {
+            return Err(LexerError::new("Unexpected token", self.line));
         }
+        return Ok(token);*/
+    }
 
+    fn match_token(&mut self, c: char) -> Result<TokenKind, LexerError> {
         match c {
-            '(' => Ok(self.make_token(TokenKind::LeftParen)),
-            ')' => Ok(self.make_token(TokenKind::RightParen)),
-            '{' => Ok(self.make_token(TokenKind::LeftBrace)),
-            '}' => Ok(self.make_token(TokenKind::RightBrace)),
-            ';' => Ok(self.make_token(TokenKind::Semicolon)),
-            ',' => Ok(self.make_token(TokenKind::Comma)),
-            '.' => Ok(self.make_token(TokenKind::Dot)),
-            '-' => Ok(self.make_token(TokenKind::Minus)),
-            '+' => Ok(self.make_token(TokenKind::Plus)),
-            '/' => Ok(self.make_token(TokenKind::Slash)),
-            '*' => Ok(self.make_token(TokenKind::Star)),
+            '(' => Ok(TokenKind::LeftParen),
+            ')' => Ok(TokenKind::RightParen),
+            '{' => Ok(TokenKind::LeftBrace),
+            '}' => Ok(TokenKind::RightBrace),
+            ';' => Ok(TokenKind::Semicolon),
+            ',' => Ok(TokenKind::Comma),
+            '.' => Ok(TokenKind::Dot),
+            '-' => Ok(TokenKind::Minus),
+            '+' => Ok(TokenKind::Plus),
+            '/' => Ok(TokenKind::Slash),
+            '*' => Ok(TokenKind::Star),
 
-            '!' => Ok(self.make_token_compound('=', TokenKind::BangEqual, TokenKind::Bang)),
-            '=' => Ok(self.make_token_compound('=', TokenKind::EqualEqual, TokenKind::Equal)),
-            '<' => Ok(self.make_token_compound('=', TokenKind::LessEqual, TokenKind::Less)),
-            '>' => Ok(self.make_token_compound('=', TokenKind::GreaterEqual, TokenKind::Greater)),
+            '!' => Ok(self.match_either('=', TokenKind::BangEqual, TokenKind::Bang)),
+            '=' => Ok(self.match_either('=', TokenKind::EqualEqual, TokenKind::Equal)),
+            '<' => Ok(self.match_either('=', TokenKind::LessEqual, TokenKind::Less)),
+            '>' => Ok(self.match_either('=', TokenKind::GreaterEqual, TokenKind::Greater)),
 
-            '"' => self.string(),
+            '"' => Ok(TokenKind::String),
+
+            ch if is_digit(ch) => Ok(TokenKind::Number),
+            ch if is_alpha(ch) => Ok(TokenKind::Identifier),
+            ch if ch.is_whitespace() => Ok(TokenKind::Whitespace),
+
             _ => Err(LexerError::new("Unexpected character", self.line)),
         }
     }
 
-    fn make_token_compound(&mut self, c: char, a: TokenKind, b: TokenKind) -> Token {
+    fn match_either(&mut self, c: char, a: TokenKind, b: TokenKind) -> TokenKind {
         if self.match_char(c) {
-            self.make_token(a)
+            a
         } else {
-            self.make_token(b)
+            b
         }
     }
 
@@ -112,12 +130,16 @@ impl Lexer {
     }
 
     fn skip_comment(&mut self) {
-        while self.peek() != '\n' && !self.is_at_end() {
+        // TODO: check eof
+        if self.peek() == '/' && self.peek_next() == '/' {
             self.advance();
+            while self.peek() != '\n' && !self.is_at_end() {
+                self.advance();
+            }
         }
     }
     fn skip_whitespace(&mut self) {
-        while !self.is_at_end() && (self.peek().is_whitespace() || self.peek() == '/') {
+        while !self.is_at_end() && (self.peek().is_whitespace()) {
             match self.peek() {
                 '\n' => self.line += 1, // Increment line count
                 '/' => {
@@ -243,7 +265,7 @@ pub struct Token {
 impl Token {
     pub fn new(kind: TokenKind) -> Self {
         Self {
-            kind: kind,
+            kind,
             start: 0,
             length: 0,
             line: 0,
@@ -303,5 +325,6 @@ pub enum TokenKind {
     Print,
     Sleep,
 
+    Whitespace,
     Eof,
 }
