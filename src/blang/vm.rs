@@ -108,8 +108,11 @@ impl VM {
         println!("{}", self.chunk.disassemble_instruction(self.pc));
     }
 
-    fn get_last_stack_value(&self) -> Value {
+    fn last_stack_value(&self) -> Value {
         self.stack.last().expect("Stack is empty").clone()
+    }
+    fn stack_empty(&self) -> bool {
+        self.stack.is_empty()
     }
 }
 
@@ -125,11 +128,31 @@ mod tests {
 
     use super::VM;
 
+    // TODO: Remove this when proper chunk support is implemented
+    fn new_vm() -> VM {
+        VM::new(Chunk::new())
+    }
     #[test]
     fn test_arithmetic() {
-        let mut vm = VM::new(Chunk::new());
+        let mut vm = new_vm();
 
         vm.interpret("1+3*4".to_string());
-        assert_eq!(vm.get_last_stack_value(), Value::Number(13.0));
+        assert_eq!(vm.last_stack_value(), Value::Number(13.0));
+    }
+
+    #[test]
+    fn test_comments() {
+        let mut vm = new_vm();
+
+        vm.interpret("1+3*4 // comment".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Number(13.0));
+
+        vm = new_vm();
+        vm.interpret("// 1+3*4".to_string());
+        assert!(vm.stack_empty());
+
+        vm = new_vm();
+        vm.interpret("1//+3*4".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Number(1.0));
     }
 }
