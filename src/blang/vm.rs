@@ -104,10 +104,29 @@ impl VM {
         println!("[line {}] {}", self.chunk.get_line(self.pc), message);
         println!("{}", self.chunk.disassemble_instruction(self.pc));
     }
+
+    fn get_last_stack_value(&self) -> Value {
+        self.stack.last().expect("Stack is empty").clone()
+    }
 }
 
 pub enum InterpretResult {
     Ok,
     CompileError,
     RuntimeError,
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::blang::{chunk::Chunk, value::Value};
+
+    use super::VM;
+
+    #[test]
+    fn test_arithmetic() {
+        let mut vm = VM::new(Chunk::new());
+
+        vm.interpret("1+3*4".to_string());
+        assert_eq!(vm.get_last_stack_value(), Value::Number(13.0));
+    }
 }
