@@ -106,4 +106,12 @@ mod tests {
     fn test_value_size() {
         assert_eq!(size_of::<Value>(), 16);
     }
+
+    #[test]
+    fn test_is_falsey() {
+        assert_eq!(Value::Boolean(true).is_falsey(), false);
+        assert_eq!(Value::Boolean(false).is_falsey(), true);
+        assert_eq!(Value::Nil.is_falsey(), true);
+        assert_eq!(Value::Number(1.0).is_falsey(), false);
+    }
 }
