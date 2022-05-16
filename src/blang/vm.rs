@@ -141,6 +141,7 @@ mod tests {
     fn new_vm() -> VM {
         VM::new(Chunk::new())
     }
+
     #[test]
     fn test_arithmetic() {
         let mut vm = new_vm();
@@ -152,16 +153,117 @@ mod tests {
         vm.interpret("(1+3*3)/5+(4*3)".to_string());
         assert_eq!(vm.last_stack_value(), Value::Number(14.0));
     }
+    #[test]
+    fn test_addition() {
+        let mut vm = new_vm();
+        vm.interpret("1+3".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Number(4.0));
+
+        vm = new_vm();
+        vm.interpret("4+3".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Number(7.0));
+    }
+    #[test]
+    fn test_subtraction() {
+        let mut vm = new_vm();
+        vm.interpret("1-3".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Number(-2.0));
+
+        vm = new_vm();
+        vm.interpret("6-2".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Number(4.0));
+    }
 
     #[test]
-    fn test_divide() {
+    fn test_multiplication() {
+        let mut vm = new_vm();
+
+        vm.interpret("2*10".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Number(20.0));
+
+        vm = new_vm();
+        vm.interpret("3*2*1".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Number(6.0));
+
+        vm = new_vm();
+        vm.interpret("1*2*3".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Number(6.0));
+    }
+
+    #[test]
+    fn test_division() {
         let mut vm = new_vm();
 
         vm.interpret("2/2".to_string());
         assert_eq!(vm.last_stack_value(), Value::Number(1.0));
 
-        vm.interpret("2/2".to_string());
-        assert_eq!(vm.last_stack_value(), Value::Number(1.0));
+        vm = new_vm();
+        vm.interpret("4/2".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Number(2.0));
+
+        vm = new_vm();
+        vm.interpret("2/4".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Number(0.5));
+
+        vm = new_vm();
+        vm.interpret("3/2/1".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Number(1.5));
+    }
+
+    #[test]
+    fn test_not() {
+        let mut vm = new_vm();
+
+        vm.interpret("!true".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Boolean(false));
+
+        vm = new_vm();
+        vm.interpret("!false".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Boolean(true));
+    }
+
+    #[test]
+    fn test_negation() {
+        let mut vm = new_vm();
+
+        vm.interpret("-1".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Number(-1.0));
+
+        vm = new_vm();
+        vm.interpret("-2".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Number(-2.0));
+
+        vm = new_vm();
+        vm.interpret("-3".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Number(-3.0));
+
+        vm = new_vm();
+        vm.interpret("--3".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Number(3.0));
+
+        vm = new_vm();
+        vm.interpret("---3".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Number(-3.0));
+    }
+
+    #[test]
+    fn test_nil() {
+        let mut vm = new_vm();
+
+        vm.interpret("nil".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Nil);
+    }
+
+    #[test]
+    fn test_boolean() {
+        let mut vm = new_vm();
+
+        vm.interpret("true".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Boolean(true));
+
+        vm = new_vm();
+        vm.interpret("false".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Boolean(false));
     }
 
     #[test]
