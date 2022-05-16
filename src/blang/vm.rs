@@ -1,5 +1,6 @@
 use super::{
     chunk::Chunk,
+    compiler::Compiler,
     opcode,
     value::{Printer, Value},
 };
@@ -19,7 +20,14 @@ impl VM {
             stack: Vec::new(),
         }
     }
-    pub fn interpret(&mut self) -> InterpretResult {
+    pub fn interpret(&mut self, source: String) -> InterpretResult {
+        let mut compiler = Compiler::new(source, &mut self.chunk);
+        if !compiler.compile() {
+            return InterpretResult::CompileError;
+        }
+
+        self.pc = 0;
+
         self.run()
     }
     fn run(&mut self) -> InterpretResult {
