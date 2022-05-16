@@ -13,9 +13,9 @@ pub struct VM {
 }
 
 macro_rules! binary_op {
-        ($self:ident, $op:tt) => {
+        ($self:ident, $value_type:ident, $op:tt) => {
             match ($self.pop(), $self.pop()) {
-                (Value::Number(b), Value::Number(a)) => $self.push(Value::Number(a $op b)),
+                (Value::Number(b), Value::Number(a)) => $self.push(Value::$value_type(a $op b)),
                 _ => {
                     $self.runtime_error("Operands must be numbers.");
                     return InterpretResult::RuntimeError;
@@ -50,10 +50,12 @@ impl VM {
             }
             // Decode the instruction
             match self.read_byte() {
-                opcode::OP_ADD => binary_op!(self, +),
-                opcode::OP_SUBTRACT => binary_op!(self, -),
-                opcode::OP_MULTIPLY => binary_op!(self, *),
-                opcode::OP_DIVIDE => binary_op!(self, /),
+                opcode::OP_GREATER => binary_op!(self, Boolean, >),
+                opcode::OP_LESS => binary_op!(self, Boolean, <),
+                opcode::OP_ADD => binary_op!(self, Number, +),
+                opcode::OP_SUBTRACT => binary_op!(self, Number, -),
+                opcode::OP_MULTIPLY => binary_op!(self, Number, *),
+                opcode::OP_DIVIDE => binary_op!(self, Number, /),
                 opcode::OP_NOT => match self.stack.pop() {
                     Some(x) => self.push(Value::Boolean(x.is_falsey())),
                     _ => {
@@ -78,6 +80,9 @@ impl VM {
                 opcode::OP_NIL => self.push(Value::Nil),
                 opcode::OP_TRUE => self.push(Value::Boolean(true)),
                 opcode::OP_FALSE => self.push(Value::Boolean(false)),
+                opcode::OP_EQUAL => match (self.pop(), self.pop()) {
+                    (a, b) => self.push(Value::Boolean(Value::is_same(a, b))),
+                },
                 _ => {
                     let op = self.read_byte();
                     self.runtime_error(format!("Unknown opcode: {}", op).as_str());

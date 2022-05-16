@@ -1,5 +1,3 @@
-//pub type Value = f64;
-
 use core::fmt;
 use std::str::FromStr;
 
@@ -15,6 +13,14 @@ impl Value {
         match self {
             Value::Nil => true,
             Value::Boolean(b) => !b,
+            _ => false,
+        }
+    }
+    pub fn is_same(a: Value, b: Value) -> bool {
+        match (a, b) {
+            (Value::Boolean(a), Value::Boolean(b)) => a == b,
+            (Value::Nil, Value::Nil) => true,
+            (Value::Number(a), Value::Number(b)) => a == b,
             _ => false,
         }
     }

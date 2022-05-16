@@ -104,6 +104,9 @@ impl Chunk {
         // TODO: rustify this, could also just check instruction type
         match *instruction {
             // TODO: Run through implementations
+            opcode::OP_EQUAL => simple_instruction(name, self, offset),
+            opcode::OP_GREATER => simple_instruction(name, self, offset),
+            opcode::OP_LESS => simple_instruction(name, self, offset),
             opcode::OP_ADD => simple_instruction(name, self, offset),
             opcode::OP_SUBTRACT => simple_instruction(name, self, offset),
             opcode::OP_MULTIPLY => simple_instruction(name, self, offset),
@@ -121,5 +124,4 @@ impl Chunk {
             }
         }
     }
-
 }

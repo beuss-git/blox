@@ -147,6 +147,12 @@ impl<'a> Compiler<'a> {
         self.parse_expression(precedence);
 
         match operator_kind {
+            TokenKind::BangEqual => self.emit_bytes(opcode::OP_EQUAL, opcode::OP_NOT),
+            TokenKind::EqualEqual => self.emit_byte(opcode::OP_EQUAL),
+            TokenKind::Greater => self.emit_byte(opcode::OP_GREATER),
+            TokenKind::GreaterEqual => self.emit_bytes(opcode::OP_LESS, opcode::OP_NOT),
+            TokenKind::Less => self.emit_byte(opcode::OP_LESS),
+            TokenKind::LessEqual => self.emit_bytes(opcode::OP_GREATER, opcode::OP_NOT),
             TokenKind::Plus => self.emit_byte(opcode::OP_ADD),
             TokenKind::Minus => self.emit_byte(opcode::OP_SUBTRACT),
             TokenKind::Star => self.emit_byte(opcode::OP_MULTIPLY),
@@ -179,9 +185,16 @@ impl<'a> Compiler<'a> {
 
     fn parse_infix(&mut self) {
         match self.parser.previous.kind {
-            TokenKind::Minus | TokenKind::Plus | TokenKind::Slash | TokenKind::Star => {
-                self.binary()
-            }
+            TokenKind::Minus
+            | TokenKind::Plus
+            | TokenKind::Slash
+            | TokenKind::Star
+            | TokenKind::BangEqual
+            | TokenKind::EqualEqual
+            | TokenKind::Greater
+            | TokenKind::GreaterEqual
+            | TokenKind::Less
+            | TokenKind::LessEqual => self.binary(),
             _ => {
                 self.error("Expect infix expression.");
                 return;
@@ -225,6 +238,11 @@ impl<'a> From<TokenKind> for Precedence {
         match kind {
             TokenKind::Minus | TokenKind::Plus => Precedence::Term,
             TokenKind::Slash | TokenKind::Star => Precedence::Factor,
+            TokenKind::BangEqual | TokenKind::EqualEqual => Precedence::Equality,
+            TokenKind::Greater
+            | TokenKind::GreaterEqual
+            | TokenKind::Less
+            | TokenKind::LessEqual => Precedence::Comparison,
             _ => Precedence::None,
         }
     }
