@@ -286,4 +286,132 @@ mod tests {
         vm.interpret("1//+3*4".to_string());
         assert_eq!(vm.last_stack_value(), Value::Number(1.0));
     }
+
+    #[test]
+    fn test_comparison() {
+        let mut vm = new_vm();
+
+        vm.interpret("!(5 - 4 > 3 * 2 == !nil)".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Boolean(true));
+    }
+
+    #[test]
+    fn test_not_equal() {
+        let mut vm = new_vm();
+
+        vm.interpret("5 != 4".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Boolean(true));
+
+        vm = new_vm();
+        vm.interpret("5 != 5".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Boolean(false));
+    }
+
+    #[test]
+    fn test_equal() {
+        let mut vm = new_vm();
+
+        vm.interpret("1 == 1".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Boolean(true));
+
+        vm = new_vm();
+        vm.interpret("1 == 2".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Boolean(false));
+
+        vm = new_vm();
+        vm.interpret("1 == 1.0".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Boolean(true));
+
+        vm = new_vm();
+        vm.interpret("1.0 == 1".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Boolean(true));
+
+        vm = new_vm();
+        vm.interpret("1.0 == 1.0".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Boolean(true));
+
+        vm = new_vm();
+        vm.interpret("1.0 == 2.0".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Boolean(false));
+
+        vm = new_vm();
+        vm.interpret("1.0 == 1.0".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Boolean(true));
+
+        vm = new_vm();
+        vm.interpret("1.0 == 2.0".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Boolean(false));
+
+        vm = new_vm();
+        vm.interpret("1.0 == 1.0".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Boolean(true));
+
+        vm = new_vm();
+        vm.interpret("1.0 == 2.0".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Boolean(false));
+    }
+
+    #[test]
+    fn test_greater() {
+        let mut vm = new_vm();
+
+        vm.interpret("5 > 4".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Boolean(true));
+
+        vm = new_vm();
+        vm.interpret("5 > 5".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Boolean(false));
+
+        vm = new_vm();
+        vm.interpret("5 > 6".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Boolean(false));
+    }
+
+    #[test]
+    fn test_greater_equal() {
+        let mut vm = new_vm();
+
+        vm.interpret("5 >= 4".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Boolean(true));
+
+        vm = new_vm();
+        vm.interpret("5 >= 5".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Boolean(true));
+
+        vm = new_vm();
+        vm.interpret("5 >= 6".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Boolean(false));
+    }
+
+    #[test]
+    fn test_less() {
+        let mut vm = new_vm();
+
+        vm.interpret("5 < 4".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Boolean(false));
+
+        vm = new_vm();
+        vm.interpret("5 < 5".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Boolean(false));
+
+        vm = new_vm();
+        vm.interpret("5 < 6".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Boolean(true));
+    }
+
+    #[test]
+    fn test_less_equal() {
+        let mut vm = new_vm();
+
+        vm.interpret("5 <= 4".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Boolean(false));
+
+        vm = new_vm();
+        vm.interpret("5 <= 5".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Boolean(true));
+
+        vm = new_vm();
+        vm.interpret("5 <= 6".to_string());
+        assert_eq!(vm.last_stack_value(), Value::Boolean(true));
+    }
 }
