@@ -62,18 +62,15 @@ impl VM {
                     }
                 },
                 opcode::OP_RETURN => {
-                    self.pop().print();
-                    println!();
                     return InterpretResult::Ok;
                 }
                 opcode::OP_CONSTANT => {
                     let constant: Value = self.read_constant();
-                    //constant.print();
-                    //println!();
                     self.push(constant);
                 }
                 _ => {
-                    println!("Unknown opcode: {}", self.read_byte());
+                    let op = self.read_byte();
+                    self.runtime_error(format!("Unknown opcode: {}", op).as_str());
                     return InterpretResult::RuntimeError;
                 }
             }
