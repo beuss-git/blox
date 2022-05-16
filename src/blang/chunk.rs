@@ -35,8 +35,9 @@ impl Chunk {
     pub fn read_chunk(&self, offset: usize) -> u8 {
         self.code[offset]
     }
+
     /// Adds byte to the chunk
-    fn write_chunk(&mut self, byte: u8, line: usize) {
+    pub fn write_byte(&mut self, byte: u8, line: usize) {
         // RLE compression of line data
         if self.line_data.len() == line + 1 {
             self.line_data[line] += 1;
@@ -66,17 +67,17 @@ impl Chunk {
 
     /// Adds instruction into our chunk
     pub fn add_instruction(&mut self, instruction: u8, line: usize) {
-        self.write_chunk(instruction, line);
+        self.write_byte(instruction, line);
     }
 
     /// Adds constant into our chunk and returns the index of the constant
     pub fn add_constant(&mut self, value: Value, line: usize) -> usize {
-        self.write_chunk(opcode::OP_CONSTANT, line);
+        self.write_byte(opcode::OP_CONSTANT, line);
         self.constants.add_value(value);
         let index = self.constants.len() - 1;
 
         // NOTE: Currently limited to 255 constants
-        self.write_chunk(index as u8, line);
+        self.write_byte(index as u8, line);
 
         index
     }

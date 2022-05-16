@@ -1,8 +1,14 @@
-use super::{lexer::Lexer, lexer::TokenType};
+use super::opcode;
+use super::value::Value;
+use super::{chunk::Chunk, lexer::Lexer, lexer::TokenKind, parser::Parser};
 
-pub struct Compiler {}
+pub struct Compiler<'a> {
+    parser: Parser,
+    lexer: Lexer,
+    current_chunk: &'a mut Chunk,
+}
 
-impl Compiler {
+impl<'a> Compiler<'a> {
     /*fn compile(source: &str) -> Result<Chunk, CompilerError> {
         /et mut chunk = Chunk::new();
         let mut parser = Parser::new(source);
@@ -13,36 +19,203 @@ impl Compiler {
         Ok(chunk)
     }
     */
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(source: String, chunk: &'a mut Chunk) -> Self {
+        Self {
+            parser: Parser::new(),
+            lexer: Lexer::new(source),
+            current_chunk: chunk,
+        }
     }
 
-    pub fn compile(&self, source: String) {
-        let mut lexer = Lexer::new(source);
-        let mut line = 0;
+    pub fn compile(&mut self) -> bool {
+        self.parser.had_error = false;
+        self.parser.panic_mode = false;
+        self.advance();
+        self.expression();
+        self.consume(TokenKind::Eof, "Expect end of expression.");
+        self.end_compiler();
+
+        self.current_chunk.disassemble_chunk("code");
+
+        !self.parser.had_error
+    }
+
+    // TODO: move to parser?
+    fn error(&mut self, message: &str) {
+        self.error_at(self.parser.previous.line, message);
+    }
+
+    fn error_at_current(&mut self, message: &str) {
+        self.error_at(self.parser.current.line, message);
+    }
+
+    fn error_at(&mut self, line: usize, message: &str) {
+        if self.parser.panic_mode {
+            return;
+        }
+        println!("[line {}] Error: {}", line, message);
+        self.parser.had_error = true;
+    }
+    fn advance(&mut self) {
+        self.parser.previous = self.parser.current;
         loop {
-            match lexer.scan_token() {
+            match self.lexer.scan_token() {
                 Ok(token) => {
-                    // Print one line at a time
-                    if token.line != line {
-                        line = token.line;
-                        print!("{} ", line);
-                        line = token.line;
-                    } else {
-                        print!("   | ");
+                    self.parser.current = token;
+                    // TODO: Fix this hack
+                    if self.parser.previous.kind == TokenKind::Eof {
+                        self.parser.previous = self.parser.current;
                     }
-
-                    println!("{:?} {}", token.t_type, lexer.get_lexeme(&token));
-
-                    if token.t_type == TokenType::Eof {
-                        break;
-                    }
-                }
-                Err(err) => {
-                    println!("{}, {}", err.line, err.message);
                     break;
                 }
+                Err(err) => {
+                    self.error_at(err.line, err.message);
+                }
             }
+        }
+    }
+    fn consume(&mut self, kind: TokenKind, message: &str) {
+        if self.parser.current.kind == kind {
+            self.advance();
+            return;
+        }
+        self.error_at_current(message);
+    }
+
+    fn emit_byte(&mut self, byte: u8) {
+        self.current_chunk
+            .write_byte(byte, self.parser.previous.line);
+    }
+    /*fn emit_bytes(&mut self, bytes: &[u8]) {
+        for byte in bytes {
+            self.emit_byte(*byte);
+        }
+    }*/
+    fn emit_bytes(&mut self, byte1: u8, byte2: u8) {
+        self.emit_byte(byte1);
+        self.emit_byte(byte2);
+    }
+
+    fn emit_return(&mut self) {
+        self.emit_byte(opcode::OP_RETURN);
+    }
+
+    fn emit_constant(&mut self, constant: Value) {
+        let constant_index = self
+            .current_chunk
+            .add_constant(constant, self.parser.previous.line);
+        if constant_index > u8::MAX as usize {
+            self.error("Too many constants in one chunk.");
+        }
+    }
+
+    fn end_compiler(&mut self) {
+        self.emit_return();
+    }
+    fn number(&mut self) {
+        let token = &self.parser.previous;
+        let lexeme = self.lexer.get_lexeme(token);
+        let value = lexeme.parse::<Value>().expect("Failed to parse lexeme");
+        self.emit_constant(value);
+    }
+    fn grouping(&mut self) {
+        self.expression();
+        self.consume(TokenKind::RightParen, "Expect ')' after expression.");
+    }
+    fn expression(&mut self) {
+        //self.parser.binary_expression();
+        self.parse_expression(Precedence::Assignment);
+    }
+    fn unary(&mut self) {
+        let operator_kind = self.parser.previous.kind;
+
+        // Compile the operand
+        self.parse_expression(Precedence::Unary);
+
+        // Emit the operator instruction
+        match operator_kind {
+            TokenKind::Minus => self.emit_byte(opcode::OP_NEGATE),
+            _ => (),
+        }
+    }
+    fn binary(&mut self) {
+        let operator_kind = self.parser.previous.kind;
+
+        let precedence = Precedence::from(self.parser.previous.kind);
+
+        self.parse_expression(precedence);
+
+        match operator_kind {
+            TokenKind::Plus => self.emit_byte(opcode::OP_ADD),
+            TokenKind::Minus => self.emit_byte(opcode::OP_SUBTRACT),
+            TokenKind::Star => self.emit_byte(opcode::OP_MULTIPLY),
+            TokenKind::Slash => self.emit_byte(opcode::OP_DIVIDE),
+            _ => (),
+        }
+    }
+
+    fn parse_prefix(&mut self) {
+        match self.parser.previous.kind {
+            TokenKind::LeftParen => self.grouping(),
+            TokenKind::Minus => self.unary(),
+            TokenKind::Number => self.number(),
+            _ => {
+                self.error("Expect prefix expression.");
+                return;
+            }
+        }
+    }
+
+    fn parse_infix(&mut self) {
+        match self.parser.previous.kind {
+            TokenKind::Minus | TokenKind::Plus | TokenKind::Slash | TokenKind::Star => {
+                self.binary()
+            }
+            _ => {
+                self.error("Expect infix expression.");
+                return;
+            }
+        }
+    }
+    fn parse_expression(&mut self, precedence: Precedence) {
+        self.advance();
+
+        self.parse_prefix();
+
+        while !self.parser.is_at_end() {
+            self.advance();
+            let next_precedence = Precedence::from(self.parser.previous.kind);
+            if precedence >= next_precedence {
+                break;
+            }
+            self.parse_infix();
+        }
+    }
+}
+
+#[repr(u8)]
+#[derive(PartialEq, PartialOrd)]
+enum Precedence {
+    None,
+    Assignment, // =
+    Or,         // or
+    And,        // and
+    Equality,   // == !=
+    Comparison, // < > >= <=
+    Term,       // + -
+    Factor,     // * /
+    Unary,      // ! -
+    Call,       // . ()
+    Primary,
+}
+
+impl<'a> From<TokenKind> for Precedence {
+    fn from(kind: TokenKind) -> Self {
+        match kind {
+            TokenKind::Minus | TokenKind::Plus => Precedence::Term,
+
+            TokenKind::Slash | TokenKind::Star => Precedence::Factor,
+            _ => Precedence::None,
         }
     }
 }
