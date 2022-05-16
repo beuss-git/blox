@@ -7,3 +7,4 @@ pub mod vm;
 
 mod compiler;
 mod lexer;
+mod parser;
