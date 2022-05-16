@@ -115,7 +115,10 @@ impl<'a> Compiler<'a> {
     fn string(&mut self) {
         let token = &self.parser.previous;
         let lexeme = self.lexer.get_lexeme(token);
-        self.emit_constant(Value::String(lexeme));
+        // Remove the quotes
+        let trimmed = &lexeme[1..lexeme.len() - 1];
+
+        self.emit_constant(Value::String(trimmed.to_string()));
     }
     fn number(&mut self) {
         let token = &self.parser.previous;
