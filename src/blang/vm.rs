@@ -198,7 +198,6 @@ impl VM {
         self.chunk.get_value(constant_index as usize)
     }
     fn print_stacktrace(&self) {
-        println!("Stack trace:");
         for value in self.stack.iter() {
             print!("[ {} ]", value);
         }
