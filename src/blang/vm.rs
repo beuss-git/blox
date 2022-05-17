@@ -565,4 +565,41 @@ mod tests {
         vm.interpret("5 <= 6;".to_string());
         assert_eq!(vm.last_value().unwrap(), Value::Boolean(true));
     }
+
+    #[test]
+    fn test_global_variable() {
+        let mut vm = new_vm();
+
+        vm.interpret(
+            r#"
+        var a = 1;
+        var b = a + 3;
+        b + a;
+        "#
+            .to_string(),
+        );
+        assert_eq!(vm.last_value().unwrap(), Value::Number(5.0));
+
+        vm = new_vm();
+        vm.interpret(
+            r#"
+        var a = 1;
+        var b = 3 + 1;
+        b + a;
+        "#
+            .to_string(),
+        );
+        assert_eq!(vm.last_value().unwrap(), Value::Number(5.0));
+
+        vm = new_vm();
+        vm.interpret(
+            r#"
+        var a = 1;
+        var b = 3 + 1;
+        a + b;
+        "#
+            .to_string(),
+        );
+        assert_eq!(vm.last_value().unwrap(), Value::Number(5.0));
+    }
 }
