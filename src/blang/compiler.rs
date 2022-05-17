@@ -540,6 +540,8 @@ impl<'a> Compiler<'a> {
             | TokenKind::GreaterEqual
             | TokenKind::Less
             | TokenKind::LessEqual => self.binary(),
+            TokenKind::And => self.and(),
+            TokenKind::Or => self.or(),
             _ => {
                 self.error("Expect infix expression.");
                 return;
@@ -619,6 +621,39 @@ impl<'a> Compiler<'a> {
         }
         self.emit_bytes(opcode::OP_DEFINE_GLOBAL, global);
     }
+
+    /// Compiles an 'and' statement
+    fn and(&mut self) {
+        // Short circuit the jump if the left operand is falsey
+        let end_jump = self.emit_jump(opcode::OP_JUMP_IF_FALSE);
+
+        // Pop the result of the expression
+        self.emit_byte(opcode::OP_POP);
+
+        // Parse the right operand
+        self.parse_expression(Precedence::And);
+
+        self.patch_jump(end_jump);
+    }
+
+    /// Compiles an 'or' statement
+    fn or(&mut self) {
+        // Jump to next statement if the left operand is falsey
+        let else_jump = self.emit_jump(opcode::OP_JUMP_IF_FALSE);
+
+        // Short circuit the 'or' expression if the left operand is truthy
+        let end_jump = self.emit_jump(opcode::OP_JUMP);
+
+        self.patch_jump(else_jump);
+
+        // Pop the result of the expression
+        self.emit_byte(opcode::OP_POP);
+
+        // Parse the right operand
+        self.parse_expression(Precedence::Or);
+
+        self.patch_jump(end_jump);
+    }
 }
 
 #[repr(u8)]
@@ -647,6 +682,8 @@ impl<'a> From<TokenKind> for Precedence {
             | TokenKind::GreaterEqual
             | TokenKind::Less
             | TokenKind::LessEqual => Precedence::Comparison,
+            TokenKind::And => Precedence::And,
+            TokenKind::Or => Precedence::Or,
             _ => Precedence::None,
         }
     }
