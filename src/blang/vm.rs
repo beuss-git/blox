@@ -152,12 +152,12 @@ impl VM {
                 opcode::OP_DEFINE_GLOBAL => {
                     // TODO: Check if it is a string
                     let name = self.read_constant();
-                    let value = self.peek();
+                    let value = self.pop();
                     self.globals.insert(name.to_string(), value);
                 }
                 opcode::OP_SET_GLOBAL => {
                     let name = self.read_constant();
-                    let value = self.pop();
+                    let value = self.peek();
                     // Possible to get an iter instead of checking and then inserting?
                     // Can also just insert, check ret value and return error if it is not None, but make sure to delete value in there
                     if self.globals.contains_key(&name.to_string()) {
