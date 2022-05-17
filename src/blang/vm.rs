@@ -1063,4 +1063,23 @@ mod tests {
         assert_eq!(res, InterpretResult::Ok);
         assert_eq!(vm.last_value().unwrap(), Value::String("hello".to_string()));*/
     }
+
+    fn execute_expression(expr: &str, expected: Value) {
+        let mut vm = new_vm();
+        let res = vm.interpret(expr.to_string());
+        assert_eq!(res, InterpretResult::Ok);
+        assert_eq!(vm.last_value().unwrap(), expected);
+    }
+    #[test]
+    fn test_logical_operators() {
+        execute_expression("print true and true;", Value::Boolean(true));
+        execute_expression("print false and true;", Value::Boolean(false));
+        execute_expression("print true and false;", Value::Boolean(false));
+        execute_expression("print false and false;", Value::Boolean(false));
+
+        execute_expression("print true or true;", Value::Boolean(true));
+        execute_expression("print false or true;", Value::Boolean(true));
+        execute_expression("print true or false;", Value::Boolean(true));
+        execute_expression("print false or false;", Value::Boolean(false));
+    }
 }
