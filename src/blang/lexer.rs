@@ -53,7 +53,6 @@ impl Lexer {
     pub fn scan_token(&mut self) -> Result<Token, LexerError> {
         // Advance to the next valid character
         self.skip_whitespace();
-        self.skip_comment();
 
         self.start = self.current;
 
@@ -130,28 +129,33 @@ impl Lexer {
     }
 
     fn skip_comment(&mut self) {
-        // TODO: check eof
-        if self.peek() == '/' && self.peek_next() == '/' {
+        self.advance();
+        while self.peek() != '\n' && !self.is_at_end() {
             self.advance();
-            while self.peek() != '\n' && !self.is_at_end() {
-                self.advance();
-            }
         }
     }
     fn skip_whitespace(&mut self) {
-        while !self.is_at_end() && (self.peek().is_whitespace()) {
+        loop {
             match self.peek() {
-                '\n' => self.line += 1, // Increment line count
+                '\n' => {
+                    self.line += 1;
+                    self.advance();
+                }
                 '/' => {
-                    // Skip comment
                     if self.peek_next() == '/' {
                         self.skip_comment();
+                    } else {
+                        break;
                     }
                 }
-                _ => (),
+                c => {
+                    if c.is_whitespace() {
+                        self.advance();
+                    } else {
+                        break;
+                    }
+                }
             }
-
-            self.advance();
         }
     }
 
