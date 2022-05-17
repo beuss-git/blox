@@ -267,17 +267,6 @@ impl<'a> Compiler<'a> {
         self.emit_bytes(opcode::OP_CONSTANT, constant_index);
     }
 
-    fn patch_jump_to(&mut self, offset: usize, to: usize) {
-        let jump_offset = self.current_chunk.code.len() - to;
-
-        if jump_offset > u16::MAX as usize {
-            self.error("Jump exceeds 16-bit maximum.");
-        }
-
-        // Encode offset into the 16-bit jump instruction
-        self.current_chunk.code[offset] = (jump_offset >> 8) as u8;
-        self.current_chunk.code[offset + 1] = jump_offset as u8;
-    }
     fn patch_jump(&mut self, offset: usize) {
         let jump_offset = self.current_chunk.code.len() - offset - 2;
 
@@ -485,17 +474,15 @@ impl<'a> Compiler<'a> {
             self.consume(TokenKind::RightParen, "Expect ')' after for clauses.");
 
             // Jump back to start of loop
-            //let jump_to_start_increment = self.emit_jump(opcode::OP_JUMP_BACK);
-            //self.patch_jump_to(jump_to_start_increment, loop_start);
             self.emit_jump_back(loop_start);
 
             loop_start = increment_start;
+
+            // Patch the jump to the start of the body
             self.patch_jump(body_jump);
         }
         self.statement();
 
-        //let jump_to_start = self.emit_jump(opcode::OP_JUMP_BACK);
-        //self.patch_jump_to(jump_to_start, loop_start);
         self.emit_jump_back(loop_start);
 
         match loop_end {
@@ -526,8 +513,7 @@ impl<'a> Compiler<'a> {
         // Compile the body statement
         self.statement();
 
-        let jump_to_start = self.emit_jump(opcode::OP_JUMP_BACK);
-        self.patch_jump_to(jump_to_start, loop_start);
+        self.emit_jump_back(loop_start);
 
         self.patch_jump(jump_to_end);
     }
