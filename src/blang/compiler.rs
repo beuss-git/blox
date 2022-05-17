@@ -145,10 +145,10 @@ impl<'a> Compiler<'a> {
 
         self.emit_constant(Value::String(trimmed.to_string()));
     }
-    fn named_variable(&mut self, name: Token) {
+    fn named_variable(&mut self, name: Token, can_assign: bool) {
         let constant_index = self.identifier_constant(name);
 
-        if self.match_token(TokenKind::Equal) {
+        if can_assign && self.match_token(TokenKind::Equal) {
             // If we match with an equals sign, we know it's a variable assignment
             self.expression();
             self.emit_bytes(opcode::OP_SET_GLOBAL, constant_index);
@@ -157,8 +157,8 @@ impl<'a> Compiler<'a> {
             self.emit_bytes(opcode::OP_GET_GLOBAL, constant_index);
         }
     }
-    fn variable(&mut self) {
-        self.named_variable(self.parser.previous);
+    fn variable(&mut self, can_assign: bool) {
+        self.named_variable(self.parser.previous, can_assign);
     }
     fn number(&mut self) {
         let token = &self.parser.previous;
@@ -285,14 +285,14 @@ impl<'a> Compiler<'a> {
         }
     }
 
-    fn parse_prefix(&mut self) {
+    fn parse_prefix(&mut self, can_assign: bool) {
         match self.parser.previous.kind {
             TokenKind::LeftParen => self.grouping(),
             TokenKind::Minus | TokenKind::Bang => self.unary(),
             TokenKind::Number => self.number(),
             TokenKind::String => self.string(),
             TokenKind::True | TokenKind::False | TokenKind::Nil => self.literal(),
-            TokenKind::Identifier => self.variable(),
+            TokenKind::Identifier => self.variable(can_assign),
             _ => {
                 self.error("Expect prefix expression.");
                 return;
@@ -321,7 +321,8 @@ impl<'a> Compiler<'a> {
     fn parse_expression(&mut self, precedence: Precedence) {
         self.advance();
 
-        self.parse_prefix();
+        let can_assign = precedence <= Precedence::Assignment;
+        self.parse_prefix(can_assign);
 
         while !self.parser.is_at_end() {
             let next_precedence = Precedence::from(self.parser.current.kind);
@@ -330,6 +331,12 @@ impl<'a> Compiler<'a> {
             }
             self.advance();
             self.parse_infix();
+        }
+
+        if can_assign && self.match_token(TokenKind::Equal) {
+            self.error("Invalid assignment target.");
+            // NOTE: I am not sure if this will be valid in all contexts
+            self.advance();
         }
     }
 
