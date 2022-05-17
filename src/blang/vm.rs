@@ -111,7 +111,9 @@ impl VM {
                 opcode::OP_TRUE => self.push(Value::Boolean(true)),
                 opcode::OP_FALSE => self.push(Value::Boolean(false)),
                 opcode::OP_POP => {
-                    self.last_value = Some(self.pop());
+                    if !self.stack_empty() {
+                        self.last_value = Some(self.pop());
+                    }
                 }
                 opcode::OP_GET_GLOBAL => {
                     let name = self.read_constant();
@@ -171,6 +173,9 @@ impl VM {
     }
     fn push(&mut self, value: Value) {
         self.stack.push(value);
+    }
+    fn stack_empty(&self) -> bool {
+        self.stack.is_empty()
     }
     fn pop(&mut self) -> Value {
         self.stack.pop().expect("Stack is empty")
@@ -584,7 +589,7 @@ mod tests {
     }
 
     #[test]
-    fn test_global_variable() {
+    fn test_global_variable_declaration() {
         let mut vm = new_vm();
 
         vm.interpret(
@@ -618,5 +623,31 @@ mod tests {
             .to_string(),
         );
         assert_eq!(vm.last_value().unwrap(), Value::Number(5.0));
+    }
+
+    #[test]
+    fn test_global_variable_assignment() {
+        let mut vm = new_vm();
+
+        vm.interpret(
+            r#"
+        var a = 1;
+        a = 2;
+        a;
+        "#
+            .to_string(),
+        );
+        assert_eq!(vm.last_value().unwrap(), Value::Number(2.0));
+
+        vm = new_vm();
+        vm.interpret(
+            r#"
+        var a = 1;
+        a = a + 2;
+        a;
+        "#
+            .to_string(),
+        );
+        assert_eq!(vm.last_value().unwrap(), Value::Number(3.0));
     }
 }
