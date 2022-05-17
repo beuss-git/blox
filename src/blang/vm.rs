@@ -1,11 +1,6 @@
-use std::{cell::RefCell, collections::HashMap};
+use std::collections::HashMap;
 
-use super::{
-    chunk::Chunk,
-    compiler::Compiler,
-    opcode,
-    value::{Printer, Value},
-};
+use super::{chunk::Chunk, compiler::Compiler, opcode, value::Value};
 
 const DEBUG_TRACE_EXECUTION: bool = false;
 const DEBUG_DISASSEMBLY: bool = false;
@@ -115,6 +110,17 @@ impl VM {
                         self.last_value = Some(self.pop());
                     }
                 }
+                opcode::OP_SET_LOCAL => {
+                    let slot = self.read_byte() as usize;
+
+                    let value = self.peek();
+                    self.stack[slot] = value;
+                }
+                opcode::OP_GET_LOCAL => {
+                    let slot = self.read_byte() as usize;
+                    let value = self.stack[slot].clone();
+                    self.push(value);
+                }
                 opcode::OP_GET_GLOBAL => {
                     let name = self.read_constant();
                     let value = self.globals.get(&name.to_string()).cloned();
@@ -128,7 +134,7 @@ impl VM {
                 opcode::OP_DEFINE_GLOBAL => {
                     // TODO: Check if it is a string
                     let name = self.read_constant();
-                    let value = self.pop();
+                    let value = self.peek();
                     self.globals.insert(name.to_string(), value);
                 }
                 opcode::OP_SET_GLOBAL => {
@@ -154,6 +160,10 @@ impl VM {
             }
         }
         //InterpretResult::Ok
+    }
+
+    fn peek(&self) -> Value {
+        self.stack.last().expect("Stack empty").clone()
     }
 
     fn read_byte(&mut self) -> u8 {

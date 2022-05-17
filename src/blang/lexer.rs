@@ -46,8 +46,8 @@ impl Lexer {
         }
     }
 
-    pub fn get_lexeme(&self, token: &Token) -> String {
-        return self.source[token.start..token.start + token.length].to_string();
+    pub fn get_lexeme(&self, token: &Token) -> &str {
+        return &self.source[token.start..token.start + token.length];
     }
 
     pub fn scan_token(&mut self) -> Result<Token, LexerError> {

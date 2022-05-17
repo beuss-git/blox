@@ -23,6 +23,12 @@ fn constant_instruction(name: &str, chunk: &Chunk, offset: usize) -> usize {
     offset + 2
 }
 
+fn byte_instruction(name: &str, chunk: &Chunk, offset: usize) -> usize {
+    let slot = chunk.read_chunk(offset + 1);
+    println!("{}: {} {}", chunk.get_line(offset), name, slot);
+    offset + 2
+}
+
 impl Chunk {
     pub fn new() -> Self {
         // TODO: Preallocate the code and line data arrays (?)
@@ -117,6 +123,8 @@ impl Chunk {
             opcode::OP_TRUE => simple_instruction(name, self, offset),
             opcode::OP_FALSE => simple_instruction(name, self, offset),
             opcode::OP_POP => simple_instruction(name, self, offset),
+            opcode::OP_GET_LOCAL => byte_instruction(name, self, offset),
+            opcode::OP_SET_LOCAL => byte_instruction(name, self, offset),
             opcode::OP_GET_GLOBAL => constant_instruction(name, self, offset),
             opcode::OP_DEFINE_GLOBAL => constant_instruction(name, self, offset),
             opcode::OP_SET_GLOBAL => constant_instruction(name, self, offset),

@@ -9,6 +9,12 @@ pub enum Value {
     String(String),
 }
 
+impl Default for Value {
+    fn default() -> Self {
+        Self::Nil
+    }
+}
+
 impl Value {
     pub fn is_falsey(&self) -> bool {
         match self {

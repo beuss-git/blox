@@ -7,6 +7,92 @@ pub struct Compiler<'a> {
     parser: Parser,
     lexer: Lexer,
     current_chunk: &'a mut Chunk,
+    locals: Locals,
+}
+pub struct Locals {
+    stack: Vec<Local>,
+    locals_count: u8,
+    scope_depth: usize,
+}
+impl Locals {
+    pub fn new() -> Self {
+        //let mut stack = Vec::with_capacity(u8::MAX as usize);
+        //stack.set_len(u8::MAX as usize);
+        Self {
+            stack: vec![Local::new(); u8::MAX as usize],
+            locals_count: 0,
+            scope_depth: 1,
+        }
+    }
+    pub fn is_full(&self) -> bool {
+        self.locals_count >= u8::MAX
+    }
+    pub fn begin_scope(&mut self) {
+        self.scope_depth += 1;
+    }
+
+    pub fn end_scope(&mut self) -> usize {
+        self.scope_depth -= 1;
+
+        // Return how many local variables we want removed from the stack.
+        // TODO: optimize, walk backward and break on first non-matching local
+        self.stack
+            .iter()
+            .filter(|local| local.depth > self.scope_depth)
+            .count()
+    }
+    pub fn add(&mut self, name: String) {
+        self.stack[self.locals_count as usize] = Local {
+            name: name,
+            depth: self.scope_depth,
+        };
+        self.locals_count += 1;
+    }
+    pub fn contains(&self, name: &str) -> bool {
+        // TODO: Optimize
+        self.stack
+            .iter()
+            .rev()
+            .any(|local| local.depth == self.scope_depth && local.name == name)
+    }
+    pub fn index_of(&self, name: &str) -> Option<usize> {
+        // Start with the most recent local and work backwards
+        self.stack.iter().position(|local| {
+            //local.depth == self.scope_depth && local.name == name
+            // Search at any depth
+            local.name == name
+        })
+    }
+    /*pub fn declare(&mut self, name: &str) -> usize {
+        let index = self.stack.len();
+        self.stack.push(Local {
+            name: name.to_string(),
+            depth: self.scope_depth,
+        });
+        index
+    }
+    pub fn index_of(&self, name: &str) -> Option<usize> {
+        for (i, local) in self.stack.iter().enumerate().rev() {
+            if local.name == name && local.depth == self.scope_depth {
+                return Some(i);
+            }
+        }
+        None
+    }*/
+}
+#[derive(Debug, Clone)]
+pub struct Local {
+    name: String,
+    depth: usize,
+}
+
+impl Local {
+    pub fn new() -> Self {
+        Self {
+            name: String::new(),
+            depth: 0,
+        }
+    }
 }
 
 impl<'a> Compiler<'a> {
@@ -25,6 +111,7 @@ impl<'a> Compiler<'a> {
             parser: Parser::new(),
             lexer: Lexer::new(source),
             current_chunk: chunk,
+            locals: Locals::new(),
         }
     }
 
@@ -137,24 +224,56 @@ impl<'a> Compiler<'a> {
     fn end_compiler(&mut self) {
         self.emit_return();
     }
+
+    fn begin_scope(&mut self) {
+        self.locals.begin_scope();
+    }
+    fn end_scope(&mut self) {
+        self.locals.end_scope();
+        for _ in 0..self.locals.end_scope() {
+            self.emit_byte(opcode::OP_POP);
+        }
+    }
+    fn is_scoped(&self) -> bool {
+        self.locals.scope_depth > 0
+    }
     fn string(&mut self) {
         let token = &self.parser.previous;
         let lexeme = self.lexer.get_lexeme(token);
         // Remove the quotes
         let trimmed = &lexeme[1..lexeme.len() - 1];
+        let trimmed_str = trimmed.to_string();
 
-        self.emit_constant(Value::String(trimmed.to_string()));
+        self.emit_constant(Value::String(trimmed_str));
+    }
+    fn resolve_local(&self, name: Token) -> Option<usize> {
+        let lexeme = self.lexer.get_lexeme(&name);
+
+        self.locals.index_of(lexeme)
     }
     fn named_variable(&mut self, name: Token, can_assign: bool) {
-        let constant_index = self.identifier_constant(name);
+        // See if we can find a local variable with this name
+        let (var_index, get_op, set_op) = match self.resolve_local(name) {
+            Some(local_index) => (
+                local_index as u8,
+                opcode::OP_GET_LOCAL,
+                opcode::OP_SET_LOCAL,
+            ),
+            // Assume it's global
+            None => (
+                self.identifier_constant(name),
+                opcode::OP_GET_GLOBAL,
+                opcode::OP_SET_GLOBAL,
+            ),
+        };
 
         if can_assign && self.match_token(TokenKind::Equal) {
             // If we match with an equals sign, we know it's a variable assignment
             self.expression();
-            self.emit_bytes(opcode::OP_SET_GLOBAL, constant_index);
+            self.emit_bytes(set_op, var_index);
         } else {
             // If not it's a variable access
-            self.emit_bytes(opcode::OP_GET_GLOBAL, constant_index);
+            self.emit_bytes(get_op, var_index);
         }
     }
     fn variable(&mut self, can_assign: bool) {
@@ -173,6 +292,13 @@ impl<'a> Compiler<'a> {
     fn expression(&mut self) {
         //self.parser.binary_expression();
         self.parse_expression(Precedence::Assignment);
+    }
+
+    fn block(&mut self) {
+        while !self.check(TokenKind::RightBrace) && !self.check(TokenKind::Eof) {
+            self.declaration();
+        }
+        self.consume(TokenKind::RightBrace, "Expect '}' after block.");
     }
 
     fn var_declaration(&mut self) {
@@ -227,6 +353,10 @@ impl<'a> Compiler<'a> {
     fn statement(&mut self) {
         if self.match_token(TokenKind::Print) {
             self.print_statement();
+        } else if self.match_token(TokenKind::LeftBrace) {
+            self.begin_scope();
+            self.block();
+            self.end_scope();
         } else {
             self.expression_statement();
         }
@@ -343,18 +473,50 @@ impl<'a> Compiler<'a> {
     fn identifier_constant(&mut self, token: Token) -> u8 {
         let lexeme = self.lexer.get_lexeme(&token);
 
-        self.make_constant(Value::String(lexeme))
+        let constant = lexeme.to_string();
+        self.make_constant(Value::String(constant))
+    }
+
+    fn add_local(&mut self, name: String) {
+        if self.locals.is_full() {
+            self.error("Too many local variables in function.");
+            return;
+        }
+        self.locals.add(name.to_string());
+    }
+    fn declare_variable(&mut self) {
+        // Global
+        if !self.is_scoped() {
+            return;
+        }
+
+        let name = self.lexer.get_lexeme(&self.parser.previous).to_string();
+
+        if self.locals.contains(&name) {
+            self.error("Variable with this name already declared in this scope.");
+        }
+
+        self.add_local(name);
     }
 
     fn parse_variable(&mut self, message: &str) -> u8 {
         // Consume the identifier
         self.consume(TokenKind::Identifier, message);
 
+        self.declare_variable();
+
+        if self.is_scoped() {
+            return 0;
+        }
+
         // Make identifier constant
         self.identifier_constant(self.parser.previous)
     }
 
     fn define_variable(&mut self, global: u8) {
+        if self.is_scoped() {
+            return;
+        }
         self.emit_bytes(opcode::OP_DEFINE_GLOBAL, global);
     }
 }
