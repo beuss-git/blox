@@ -800,4 +800,18 @@ mod tests {
         expect_value("print true or false;", Value::Boolean(true));
         expect_value("print false or false;", Value::Boolean(false));
     }
+
+    #[test]
+    fn test_while_loop() {
+        expect_value(
+            r#"
+        var a = 0;
+        while (a < 5) {
+            a = a + 1;
+        }
+        print a;
+        "#,
+            Value::Number(5.0),
+        );
+    }
 }
