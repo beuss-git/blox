@@ -415,6 +415,17 @@ mod tests {
         vm = new_vm();
         vm.interpret("print 1; //+3*4".to_string());
         assert_eq!(vm.last_value().unwrap(), Value::Number(1.0));
+
+        vm = new_vm();
+        vm.interpret(
+            r#"
+            var b = 2;
+            //b = 14;
+            print b;
+        "#
+            .to_string(),
+        );
+        assert_eq!(vm.last_value().unwrap(), Value::Number(2.0));
     }
 
     #[test]
