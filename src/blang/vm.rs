@@ -243,627 +243,378 @@ mod tests {
         VM::new(Chunk::new())
     }
 
+    fn expect_value(expr: &str, expected: Value) {
+        let mut vm = new_vm();
+        let res = vm.interpret(expr.to_string());
+        assert_eq!(res, InterpretResult::Ok);
+        assert_eq!(vm.last_value().unwrap(), expected);
+    }
+
+    fn expect_none(expr: &str) {
+        let mut vm = new_vm();
+        let res = vm.interpret(expr.to_string());
+        assert!(vm.last_value().is_none());
+    }
+
+    fn expect_compile_result(expr: &str, expected: InterpretResult) {
+        let mut vm = new_vm();
+        let res = vm.interpret(expr.to_string());
+        assert_eq!(res, expected);
+    }
+
     #[test]
     fn test_arithmetic() {
-        let mut vm = new_vm();
-
-        vm.interpret("print 1+3*4;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Number(13.0));
-
-        vm = new_vm();
-        vm.interpret("print (1+3*3)/5+(4*3);".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Number(14.0));
+        expect_value("print 1+3*4;", Value::Number(13.0));
+        expect_value("print (1+3*3)/5+(4*3);", Value::Number(14.0));
     }
+
+    #[test]
+    fn test_modulo() {
+        expect_value("print 5%2;", Value::Number(1.0));
+        expect_value("print 5%3;", Value::Number(2.0));
+    }
+
     #[test]
     fn test_addition() {
-        let mut vm = new_vm();
-        vm.interpret("print 1+3;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Number(4.0));
-
-        vm = new_vm();
-        vm.interpret("print 4+3;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Number(7.0));
+        expect_value("print 1+3;", Value::Number(4.0));
+        expect_value("print 4+3;", Value::Number(7.0));
     }
     #[test]
     fn test_string_concatenation() {
-        let mut vm = new_vm();
-        vm.interpret(r#"print "Hello" + " " + "World!";"#.to_string());
-        assert_eq!(
-            vm.last_value().unwrap(),
-            Value::String("Hello World!".to_string())
+        expect_value(
+            r#"print "Hello" + " " + "World!";"#,
+            Value::String("Hello World!".to_string()),
         );
-
-        vm = new_vm();
-        vm.interpret(r#"print "Hel" + "lo" + ", " + "Wo" + "rld!";"#.to_string());
-        assert_eq!(
-            vm.last_value().unwrap(),
-            Value::String("Hello, World!".to_string())
+        expect_value(
+            r#"print "Hel" + "lo" + ", " + "Wo" + "rld!";"#,
+            Value::String("Hello, World!".to_string()),
         );
-
-        vm = new_vm();
-        vm.interpret(r#"print "one" + "two";"#.to_string());
-        assert_eq!(
-            vm.last_value().unwrap(),
-            Value::String("onetwo".to_string())
+        expect_value(
+            r#"print "one" + "two";"#,
+            Value::String("onetwo".to_string()),
         );
-
-        vm = new_vm();
-        vm.interpret(r#"print "one" + 2;"#.to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::String("one2".to_string()));
-
-        vm = new_vm();
-        vm.interpret(r#"print "one" + 2.1;"#.to_string());
-        assert_eq!(
-            vm.last_value().unwrap(),
-            Value::String("one2.1".to_string())
+        expect_value(r#"print "one" + 2;"#, Value::String("one2".to_string()));
+        expect_value(r#"print "one" + 2.1;"#, Value::String("one2.1".to_string()));
+        expect_value(
+            r#"print "one" + true;"#,
+            Value::String("onetrue".to_string()),
         );
-
-        vm = new_vm();
-        vm.interpret(r#"print "one" + true;"#.to_string());
-        assert_eq!(
-            vm.last_value().unwrap(),
-            Value::String("onetrue".to_string())
+        expect_value(
+            r#"print "one" + false;"#,
+            Value::String("onefalse".to_string()),
         );
-
-        vm = new_vm();
-        vm.interpret(r#"print "one" + false;"#.to_string());
-        assert_eq!(
-            vm.last_value().unwrap(),
-            Value::String("onefalse".to_string())
-        );
-
-        vm = new_vm();
-        vm.interpret(r#"print "one" + nil;"#.to_string());
-        assert_eq!(
-            vm.last_value().unwrap(),
-            Value::String("onenil".to_string())
-        );
+        expect_value(r#"print "one" + nil;"#, Value::String("onenil".to_string()));
     }
     #[test]
     fn test_subtraction() {
-        let mut vm = new_vm();
-        vm.interpret("print 1-3;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Number(-2.0));
-
-        vm = new_vm();
-        vm.interpret("print 6-2;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Number(4.0));
+        expect_value("print 1-3;", Value::Number(-2.0));
+        expect_value("print 6-2;", Value::Number(4.0));
     }
 
     #[test]
     fn test_multiplication() {
-        let mut vm = new_vm();
-
-        vm.interpret("print 2*10;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Number(20.0));
-
-        vm = new_vm();
-        vm.interpret("print 3*2*1;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Number(6.0));
-
-        vm = new_vm();
-        vm.interpret("print 1*2*3;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Number(6.0));
+        expect_value("print 2*10;", Value::Number(20.0));
+        expect_value("print 3*2*1;", Value::Number(6.0));
+        expect_value("print 1*2*3;", Value::Number(6.0));
     }
 
     #[test]
     fn test_division() {
-        let mut vm = new_vm();
-
-        vm.interpret("print 2/2;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Number(1.0));
-
-        vm = new_vm();
-        vm.interpret("print 4/2;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Number(2.0));
-
-        vm = new_vm();
-        vm.interpret("print 2/4;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Number(0.5));
-
-        vm = new_vm();
-        vm.interpret("print 3/2/1;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Number(1.5));
+        expect_value("print 2/2;", Value::Number(1.0));
+        expect_value("print 4/2;", Value::Number(2.0));
+        expect_value("print 2/4;", Value::Number(0.5));
+        expect_value("print 3/2/1;", Value::Number(1.5));
     }
 
     #[test]
     fn test_not() {
-        let mut vm = new_vm();
-
-        vm.interpret("print !true;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Boolean(false));
-
-        vm = new_vm();
-        vm.interpret("print !false;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Boolean(true));
+        expect_value("print !true;", Value::Boolean(false));
+        expect_value("print !false;", Value::Boolean(true));
     }
 
     #[test]
     fn test_negation() {
-        let mut vm = new_vm();
-
-        vm.interpret("print -1;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Number(-1.0));
-
-        vm = new_vm();
-        vm.interpret("print -2;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Number(-2.0));
-
-        vm = new_vm();
-        vm.interpret("print -3;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Number(-3.0));
-
-        vm = new_vm();
-        vm.interpret("print --3;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Number(3.0));
-
-        vm = new_vm();
-        vm.interpret("print ---3;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Number(-3.0));
+        expect_value("print -1;", Value::Number(-1.0));
+        expect_value("print -2;", Value::Number(-2.0));
+        expect_value("print -3;", Value::Number(-3.0));
+        expect_value("print --3;", Value::Number(3.0));
+        expect_value("print ---3;", Value::Number(-3.0));
     }
 
     #[test]
     fn test_nil() {
-        let mut vm = new_vm();
-
-        vm.interpret("print nil;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Nil);
+        expect_value("print nil;", Value::Nil);
     }
 
     #[test]
     fn test_boolean() {
-        let mut vm = new_vm();
-
-        vm.interpret("print true;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Boolean(true));
-
-        vm = new_vm();
-        vm.interpret("print false;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Boolean(false));
+        expect_value("print true;", Value::Boolean(true));
+        expect_value("print false;", Value::Boolean(false));
     }
 
     #[test]
     fn test_comments() {
-        let mut vm = new_vm();
-
-        vm.interpret("print 1+3*4; // comment".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Number(13.0));
-
-        vm = new_vm();
-        vm.interpret("// 1+3*4".to_string());
-        assert!(vm.last_value().is_none());
-
-        vm = new_vm();
-        vm.interpret("print 1; //+3*4".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Number(1.0));
-
-        vm = new_vm();
-        vm.interpret(
+        expect_value("print 1+3*4; // comment", Value::Number(13.0));
+        expect_none("// 1+3*4");
+        expect_value("print 1; //+3*4", Value::Number(1.0));
+        expect_value(
             r#"
             var b = 2;
             //b = 14;
             print b;
-        "#
-            .to_string(),
+        "#,
+            Value::Number(2.0),
         );
-        assert_eq!(vm.last_value().unwrap(), Value::Number(2.0));
     }
 
     #[test]
     fn test_comparison() {
-        let mut vm = new_vm();
-
-        vm.interpret("print !(5 - 4 > 3 * 2 == !nil);".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Boolean(true));
+        expect_value("print !(5 - 4 > 3 * 2 == !nil);", Value::Boolean(true));
     }
 
     #[test]
     fn test_not_equal() {
-        let mut vm = new_vm();
-
-        vm.interpret("print 5 != 4;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Boolean(true));
-
-        vm = new_vm();
-        vm.interpret("print 5 != 5;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Boolean(false));
-
-        vm = new_vm();
-        vm.interpret("print true != true;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Boolean(false));
-
-        vm = new_vm();
-        vm.interpret("print false != false;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Boolean(false));
-
-        vm = new_vm();
-        vm.interpret("print true != false;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Boolean(true));
-
-        vm = new_vm();
-        vm.interpret("print false != true;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Boolean(true));
-
-        vm = new_vm();
-        vm.interpret(r#"print "str" != "str";"#.to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Boolean(false));
-
-        vm = new_vm();
-        vm.interpret(r#"print "str" != "st2";"#.to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Boolean(true));
-
-        vm = new_vm();
-        vm.interpret(r#"print "str" != "st";"#.to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Boolean(true));
+        expect_value("print 5 != 4;", Value::Boolean(true));
+        expect_value("print 5 != 5;", Value::Boolean(false));
+        expect_value("print true != true;", Value::Boolean(false));
+        expect_value("print false != false;", Value::Boolean(false));
+        expect_value("print true != false;", Value::Boolean(true));
+        expect_value("print false != true;", Value::Boolean(true));
+        expect_value(r#"print "str" != "str";"#, Value::Boolean(false));
+        expect_value(r#"print "str" != "st2";"#, Value::Boolean(true));
+        expect_value(r#"print "str" != "st";"#, Value::Boolean(true));
     }
 
     #[test]
     fn test_equal() {
-        let mut vm = new_vm();
-
-        vm.interpret("print 1 == 1;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Boolean(true));
-
-        vm = new_vm();
-        vm.interpret("print 1 == 2;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Boolean(false));
-
-        vm = new_vm();
-        vm.interpret("print 1 == 1.0;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Boolean(true));
-
-        vm = new_vm();
-        vm.interpret("print 1.0 == 1;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Boolean(true));
-
-        vm = new_vm();
-        vm.interpret("print 1.0 == 1.0;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Boolean(true));
-
-        vm = new_vm();
-        vm.interpret("print 1.0 == 2.0;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Boolean(false));
-
-        vm = new_vm();
-        vm.interpret("print 1.0 == 1.0;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Boolean(true));
-
-        vm = new_vm();
-        vm.interpret("print 1.0 == 2.0;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Boolean(false));
-
-        vm = new_vm();
-        vm.interpret("print 1.0 == 1.0;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Boolean(true));
-
-        vm = new_vm();
-        vm.interpret("print 1.0 == 2.0;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Boolean(false));
-
-        vm = new_vm();
-        vm.interpret("print true == true;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Boolean(true));
-
-        vm = new_vm();
-        vm.interpret("print false == false;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Boolean(true));
-
-        vm = new_vm();
-        vm.interpret("print true == false;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Boolean(false));
-
-        vm = new_vm();
-        vm.interpret("print false == true;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Boolean(false));
-
-        vm = new_vm();
-        vm.interpret(r#"print "str" == "str";"#.to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Boolean(true));
-
-        vm = new_vm();
-        vm.interpret(r#"print "str" == "st2";"#.to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Boolean(false));
-
-        vm = new_vm();
-        vm.interpret(r#"print "str" == "st";"#.to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Boolean(false));
+        expect_value("print 1 == 1;", Value::Boolean(true));
+        expect_value("print 1 == 2;", Value::Boolean(false));
+        expect_value("print 1 == 1.0;", Value::Boolean(true));
+        expect_value("print 1.0 == 1;", Value::Boolean(true));
+        expect_value("print 1.0 == 1.0;", Value::Boolean(true));
+        expect_value("print 1.0 == 2.0;", Value::Boolean(false));
+        expect_value("print 1.0 == 1.0;", Value::Boolean(true));
+        expect_value("print 1.0 == 2.0;", Value::Boolean(false));
+        expect_value("print 1.0 == 1.0;", Value::Boolean(true));
+        expect_value("print 1.0 == 2.0;", Value::Boolean(false));
+        expect_value("print true == true;", Value::Boolean(true));
+        expect_value("print false == false;", Value::Boolean(true));
+        expect_value("print true == false;", Value::Boolean(false));
+        expect_value("print false == true;", Value::Boolean(false));
+        expect_value(r#"print "str" == "str";"#, Value::Boolean(true));
+        expect_value(r#"print "str" == "st2";"#, Value::Boolean(false));
+        expect_value(r#"print "str" == "st";"#, Value::Boolean(false));
     }
 
     #[test]
     fn test_greater() {
-        let mut vm = new_vm();
-
-        vm.interpret("print 5 > 4;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Boolean(true));
-
-        vm = new_vm();
-        vm.interpret("print 5 > 5;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Boolean(false));
-
-        vm = new_vm();
-        vm.interpret("print 5 > 6;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Boolean(false));
+        expect_value("print 5 > 4;", Value::Boolean(true));
+        expect_value("print 5 > 5;", Value::Boolean(false));
+        expect_value("print 5 > 6;", Value::Boolean(false));
     }
 
     #[test]
     fn test_greater_equal() {
-        let mut vm = new_vm();
-
-        vm.interpret("print 5 >= 4;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Boolean(true));
-
-        vm = new_vm();
-        vm.interpret("print 5 >= 5;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Boolean(true));
-
-        vm = new_vm();
-        vm.interpret("print 5 >= 6;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Boolean(false));
+        expect_value("print 5 >= 4;", Value::Boolean(true));
+        expect_value("print 5 >= 5;", Value::Boolean(true));
+        expect_value("print 5 >= 6;", Value::Boolean(false));
     }
 
     #[test]
     fn test_less() {
-        let mut vm = new_vm();
-
-        vm.interpret("print 5 < 4;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Boolean(false));
-
-        vm = new_vm();
-        vm.interpret("print 5 < 5;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Boolean(false));
-
-        vm = new_vm();
-        vm.interpret("print 5 < 6;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Boolean(true));
+        expect_value("print 5 < 4;", Value::Boolean(false));
+        expect_value("print 5 < 5;", Value::Boolean(false));
+        expect_value("print 5 < 6;", Value::Boolean(true));
     }
 
     #[test]
     fn test_less_equal() {
-        let mut vm = new_vm();
-
-        vm.interpret("print 5 <= 4;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Boolean(false));
-
-        vm = new_vm();
-        vm.interpret("print 5 <= 5;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Boolean(true));
-
-        vm = new_vm();
-        vm.interpret("print 5 <= 6;".to_string());
-        assert_eq!(vm.last_value().unwrap(), Value::Boolean(true));
+        expect_value("print 5 <= 4;", Value::Boolean(false));
+        expect_value("print 5 <= 5;", Value::Boolean(true));
+        expect_value("print 5 <= 6;", Value::Boolean(true));
     }
 
     #[test]
     fn test_global_variable_declaration() {
-        let mut vm = new_vm();
-
-        vm.interpret(
+        expect_value(
             r#"
         var a = 1;
         var b = a + 3;
         print b + a;
-        "#
-            .to_string(),
+        "#,
+            Value::Number(5.0),
         );
-        assert_eq!(vm.last_value().unwrap(), Value::Number(5.0));
 
-        vm = new_vm();
-        vm.interpret(
+        expect_value(
             r#"
         var a = 1;
         var b = 3 + 1;
         print b + a;
-        "#
-            .to_string(),
+        "#,
+            Value::Number(5.0),
         );
-        assert_eq!(vm.last_value().unwrap(), Value::Number(5.0));
 
-        vm = new_vm();
-        vm.interpret(
+        expect_value(
             r#"
         var a = 1;
         var b = 3 + 1;
         print a + b;
-        "#
-            .to_string(),
+        "#,
+            Value::Number(5.0),
         );
-        assert_eq!(vm.last_value().unwrap(), Value::Number(5.0));
     }
 
     #[test]
     fn test_global_variable_assignment() {
-        let mut vm = new_vm();
-
-        vm.interpret(
+        expect_value(
             r#"
         var a = 1;
         a = 2;
         print a;
-        "#
-            .to_string(),
+        "#,
+            Value::Number(2.0),
         );
-        assert_eq!(vm.last_value().unwrap(), Value::Number(2.0));
 
-        vm = new_vm();
-        vm.interpret(
+        expect_value(
             r#"
         var a = 1;
         a = a + 2;
         print a;
-        "#
-            .to_string(),
-        );
-        assert_eq!(vm.last_value().unwrap(), Value::Number(3.0));
-
-        // Assign to invalid assignment target
-        vm = new_vm();
-        assert_eq!(
-            vm.interpret(
-                r#"
-                    a + b = c;
-                "#
-                .to_string(),
-            ),
-            InterpretResult::CompileError
+        "#,
+            Value::Number(3.0),
         );
 
         // Assign to invalid assignment target
-        vm = new_vm();
-        assert_eq!(
-            vm.interpret(
-                r#"
+        expect_compile_result(
+            r#"
+                a + b = c;
+            "#,
+            InterpretResult::CompileError,
+        );
+
+        // Assign to invalid assignment target
+        expect_compile_result(
+            r#"
                     var c = 3;
                     a + b = c;
-                "#
-                .to_string(),
-            ),
-            InterpretResult::CompileError
+                "#,
+            InterpretResult::CompileError,
         );
 
         // Assign to invalid assignment target
-        vm = new_vm();
-        assert_eq!(
-            vm.interpret(
-                r#"
+        expect_compile_result(
+            r#"
                     var c = 3;
                     var a = 1;
                     var b = 2;
                     a + b = c;
-                "#
-                .to_string(),
-            ),
-            InterpretResult::CompileError
+                "#,
+            InterpretResult::CompileError,
         );
     }
 
     #[test]
     fn test_default_nil() {
-        let mut vm = new_vm();
-
-        vm.interpret(
+        expect_value(
             r#"
         var a;
         print a;
-        "#
-            .to_string(),
+        "#,
+            Value::Nil,
         );
-        assert_eq!(vm.last_value().unwrap(), Value::Nil);
     }
 
     #[test]
     fn test_nil_value() {
-        let mut vm = new_vm();
-
-        vm.interpret(
+        expect_value(
             r#"
         var a = nil;
         print a;
-        "#
-            .to_string(),
+        "#,
+            Value::Nil,
         );
-        assert_eq!(vm.last_value().unwrap(), Value::Nil);
     }
 
     #[test]
     fn test_number_value() {
-        let mut vm = new_vm();
-
-        vm.interpret(
+        expect_value(
             r#"
         var a = 5.0;
         print a;
-        "#
-            .to_string(),
+        "#,
+            Value::Number(5.0),
         );
-        assert_eq!(vm.last_value().unwrap(), Value::Number(5.0));
     }
 
     #[test]
     fn test_string_value() {
-        let mut vm = new_vm();
-
-        vm.interpret(
+        expect_value(
             r#"
         var a = "hello";
         print a;
-        "#
-            .to_string(),
+        "#,
+            Value::String("hello".to_string()),
         );
-        assert_eq!(vm.last_value().unwrap(), Value::String("hello".to_string()));
     }
 
     #[test]
     fn test_bool_value() {
-        let mut vm = new_vm();
-
-        vm.interpret(
+        expect_value(
             r#"
         var a = true;
         print a;
-        "#
-            .to_string(),
+        "#,
+            Value::Boolean(true),
         );
-        assert_eq!(vm.last_value().unwrap(), Value::Boolean(true));
     }
 
     #[test]
     fn test_value_assignment() {
-        let mut vm = new_vm();
-
         // Number
-        vm.interpret(
+        expect_value(
             r#"
         var a;
         a = 1.0;
         print a;
-        "#
-            .to_string(),
+        "#,
+            Value::Number(1.0),
         );
-        assert_eq!(vm.last_value().unwrap(), Value::Number(1.0));
 
         // Bool
-        vm = new_vm();
-        vm.interpret(
+        expect_value(
             r#"
         var a;
         a = false;
         print a;
-        "#
-            .to_string(),
+        "#,
+            Value::Boolean(false),
         );
-        assert_eq!(vm.last_value().unwrap(), Value::Boolean(false));
 
         // String
-        vm = new_vm();
-        vm.interpret(
+        expect_value(
             r#"
         var a;
         a = "hello";
         print a;
-        "#
-            .to_string(),
+        "#,
+            Value::String("hello".to_string()),
         );
-        assert_eq!(vm.last_value().unwrap(), Value::String("hello".to_string()));
 
         // Nil
-        vm = new_vm();
-        vm.interpret(
+        expect_value(
             r#"
         var a;
         a = nil;
         print a;
-        "#
-            .to_string(),
+        "#,
+            Value::Nil,
         );
-        assert_eq!(vm.last_value().unwrap(), Value::Nil);
     }
     // TODO: Scope test
 
     #[test]
     fn test_scope() {
-        let mut vm = new_vm();
-
-        vm.interpret(
+        expect_value(
             r#"
             {
                 var a = "outer";
@@ -873,13 +624,11 @@ mod tests {
                 }
             }
 
-        "#
-            .to_string(),
+        "#,
+            Value::Number(3.0),
         );
-        assert_eq!(vm.last_value().unwrap(), Value::Number(3.0));
 
-        vm = new_vm();
-        vm.interpret(
+        expect_value(
             r#"
             {
                 var a = "outer";
@@ -889,13 +638,11 @@ mod tests {
                 print a;
             }
 
-        "#
-            .to_string(),
+        "#,
+            Value::String("outer".to_string()),
         );
-        assert_eq!(vm.last_value().unwrap(), Value::String("outer".to_string()));
 
-        vm = new_vm();
-        vm.interpret(
+        expect_value(
             r#"
             {
                 var a = "outer";
@@ -904,13 +651,11 @@ mod tests {
                 }
             }
 
-        "#
-            .to_string(),
+        "#,
+            Value::String("outer".to_string()),
         );
-        assert_eq!(vm.last_value().unwrap(), Value::String("outer".to_string()));
 
-        vm = new_vm();
-        vm.interpret(
+        expect_value(
             r#"
             {
                 var a = "outer";
@@ -921,44 +666,37 @@ mod tests {
                 print a;
             }
 
-        "#
-            .to_string(),
+        "#,
+            Value::Number(3.0),
         );
-        assert_eq!(vm.last_value().unwrap(), Value::Number(3.0));
     }
     #[test]
     fn test_undefined_variable() {
-        let mut vm = new_vm();
-
         // Test undefined in local sope
-        let res = vm.interpret(
+        expect_compile_result(
             r#"
             {
                 print a;
             }
 
-        "#
-            .to_string(),
+        "#,
+            InterpretResult::RuntimeError,
         );
-        assert_eq!(res, InterpretResult::RuntimeError);
 
-        vm = new_vm();
         // Test gone out of scope
-        let res = vm.interpret(
+        expect_compile_result(
             r#"
             {
                 var a = 3;
             }
             print a;
 
-        "#
-            .to_string(),
+        "#,
+            InterpretResult::RuntimeError,
         );
-        assert_eq!(res, InterpretResult::RuntimeError);
 
-        vm = new_vm();
         // Test gone out of scope
-        let res = vm.interpret(
+        expect_compile_result(
             r#"
             {
                 {
@@ -967,14 +705,12 @@ mod tests {
             }
             print a;
 
-        "#
-            .to_string(),
+        "#,
+            InterpretResult::RuntimeError,
         );
-        assert_eq!(res, InterpretResult::RuntimeError);
 
-        vm = new_vm();
         // Test gone out of scope
-        let res = vm.interpret(
+        expect_compile_result(
             r#"
             {
                 {
@@ -983,74 +719,58 @@ mod tests {
                 print a;
             }
 
-        "#
-            .to_string(),
+        "#,
+            InterpretResult::RuntimeError,
         );
-        assert_eq!(res, InterpretResult::RuntimeError);
 
-        vm = new_vm();
         // Test undefined in global scope
-        let res = vm.interpret(
+        expect_compile_result(
             r#"
             print a;
-            "#
-            .to_string(),
+            "#,
+            InterpretResult::RuntimeError,
         );
-        assert_eq!(res, InterpretResult::RuntimeError);
     }
     #[test]
     fn test_if() {
-        let mut vm = new_vm();
-        let res = vm.interpret(
+        expect_value(
             r#"
         if (true) {
             print "hello";
         }
-        "#
-            .to_string(),
+        "#,
+            Value::String("hello".to_string()),
         );
-        assert_eq!(res, InterpretResult::Ok);
-        assert_eq!(vm.last_value().unwrap(), Value::String("hello".to_string()));
 
-        vm = new_vm();
-        let res = vm.interpret(
+        expect_none(
             r#"
         if (false) {
             print "hello";
         }
-        "#
-            .to_string(),
+        "#,
         );
-        assert_eq!(res, InterpretResult::Ok);
-        assert!(vm.stack_empty());
 
-        vm = new_vm();
-        let res = vm.interpret(
+        expect_value(
             r#"
         if (true) {
             print "hello";
         } else {
             print "world";
         }
-        "#
-            .to_string(),
+        "#,
+            Value::String("hello".to_string()),
         );
-        assert_eq!(res, InterpretResult::Ok);
-        assert_eq!(vm.last_value().unwrap(), Value::String("hello".to_string()));
 
-        vm = new_vm();
-        let res = vm.interpret(
+        expect_value(
             r#"
         if (false) {
             print "hello";
         } else {
             print "world";
         }
-        "#
-            .to_string(),
+        "#,
+            Value::String("world".to_string()),
         );
-        assert_eq!(res, InterpretResult::Ok);
-        assert_eq!(vm.last_value().unwrap(), Value::String("world".to_string()));
 
         /*vm = new_vm();
         let res = vm.interpret(
@@ -1068,23 +788,16 @@ mod tests {
         assert_eq!(res, InterpretResult::Ok);
         assert_eq!(vm.last_value().unwrap(), Value::String("hello".to_string()));*/
     }
-
-    fn execute_expression(expr: &str, expected: Value) {
-        let mut vm = new_vm();
-        let res = vm.interpret(expr.to_string());
-        assert_eq!(res, InterpretResult::Ok);
-        assert_eq!(vm.last_value().unwrap(), expected);
-    }
     #[test]
     fn test_logical_operators() {
-        execute_expression("print true and true;", Value::Boolean(true));
-        execute_expression("print false and true;", Value::Boolean(false));
-        execute_expression("print true and false;", Value::Boolean(false));
-        execute_expression("print false and false;", Value::Boolean(false));
+        expect_value("print true and true;", Value::Boolean(true));
+        expect_value("print false and true;", Value::Boolean(false));
+        expect_value("print true and false;", Value::Boolean(false));
+        expect_value("print false and false;", Value::Boolean(false));
 
-        execute_expression("print true or true;", Value::Boolean(true));
-        execute_expression("print false or true;", Value::Boolean(true));
-        execute_expression("print true or false;", Value::Boolean(true));
-        execute_expression("print false or false;", Value::Boolean(false));
+        expect_value("print true or true;", Value::Boolean(true));
+        expect_value("print false or true;", Value::Boolean(true));
+        expect_value("print true or false;", Value::Boolean(true));
+        expect_value("print false or false;", Value::Boolean(false));
     }
 }
