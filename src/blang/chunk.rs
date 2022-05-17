@@ -119,6 +119,7 @@ impl Chunk {
             opcode::OP_POP => simple_instruction(name, self, offset),
             opcode::OP_GET_GLOBAL => constant_instruction(name, self, offset),
             opcode::OP_DEFINE_GLOBAL => constant_instruction(name, self, offset),
+            opcode::OP_SET_GLOBAL => constant_instruction(name, self, offset),
             _ => {
                 println!("Invalid opcode {}", self.code[offset] as u8);
                 offset + 1
