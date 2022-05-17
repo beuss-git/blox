@@ -21,7 +21,7 @@ impl Locals {
         Self {
             stack: vec![Local::new(); u8::MAX as usize],
             locals_count: 0,
-            scope_depth: 1,
+            scope_depth: 0,
         }
     }
     pub fn is_full(&self) -> bool {
@@ -31,38 +31,61 @@ impl Locals {
         self.scope_depth += 1;
     }
 
+    /// Returns the amount of locals removed from the stack.
     pub fn end_scope(&mut self) -> usize {
         self.scope_depth -= 1;
 
-        // Return how many local variables we want removed from the stack.
-        // TODO: optimize, walk backward and break on first non-matching local
-        self.stack
-            .iter()
-            .filter(|local| local.depth > self.scope_depth)
-            .count()
+        let previous_count = self.locals_count;
+
+        // I would have loved to make this more functional, but I'm not sure how to do that with local arrays limited by locals_count.
+        // it would have sacrificed performance
+        for i in (0..self.locals_count).rev() {
+            let local = &self.stack[i as usize];
+            if local.depth <= self.scope_depth {
+                break;
+            }
+            self.locals_count -= 1;
+        }
+        (previous_count - self.locals_count) as usize
     }
-    pub fn add(&mut self, name: String) {
+    /// Declares a local variable
+    pub fn declare(&mut self, name: String) {
         self.stack[self.locals_count as usize] = Local {
             name: name,
             depth: self.scope_depth,
+            initialized: false,
         };
         self.locals_count += 1;
     }
+
+    /// Marks the local variable as initialized
+    pub fn define(&mut self) {
+        self.stack[self.locals_count as usize - 1].initialized = true;
+    }
+
     pub fn contains(&self, name: &str) -> bool {
-        // TODO: Optimize
+        // TODO: Optimize, also limit to locals_count
         self.stack
             .iter()
             .rev()
             .any(|local| local.depth == self.scope_depth && local.name == name)
     }
-    pub fn index_of(&self, name: &str) -> Option<usize> {
+    pub fn index_of(&self, name: &str) -> Option<(usize, bool)> {
         // Start with the most recent local and work backwards
-        self.stack.iter().position(|local| {
+        for i in (0..self.locals_count).rev() {
+            let local = &self.stack[i as usize];
+            if local.name == name {
+                return Some((i as usize, local.initialized));
+            }
+        }
+        None
+        /*self.stack.iter().position(|local| {
             //local.depth == self.scope_depth && local.name == name
             // Search at any depth
             local.name == name
-        })
+        })*/
     }
+
     /*pub fn declare(&mut self, name: &str) -> usize {
         let index = self.stack.len();
         self.stack.push(Local {
@@ -84,6 +107,7 @@ impl Locals {
 pub struct Local {
     name: String,
     depth: usize,
+    initialized: bool,
 }
 
 impl Local {
@@ -91,6 +115,7 @@ impl Local {
         Self {
             name: String::new(),
             depth: 0,
+            initialized: false,
         }
     }
 }
@@ -229,7 +254,6 @@ impl<'a> Compiler<'a> {
         self.locals.begin_scope();
     }
     fn end_scope(&mut self) {
-        self.locals.end_scope();
         for _ in 0..self.locals.end_scope() {
             self.emit_byte(opcode::OP_POP);
         }
@@ -246,10 +270,18 @@ impl<'a> Compiler<'a> {
 
         self.emit_constant(Value::String(trimmed_str));
     }
-    fn resolve_local(&self, name: Token) -> Option<usize> {
+    fn resolve_local(&mut self, name: Token) -> Option<usize> {
         let lexeme = self.lexer.get_lexeme(&name);
 
-        self.locals.index_of(lexeme)
+        match self.locals.index_of(lexeme) {
+            Some((index, initialized)) => {
+                if !initialized {
+                    self.error("Can't read local variable in its own initializer");
+                }
+                Some(index)
+            }
+            None => None,
+        }
     }
     fn named_variable(&mut self, name: Token, can_assign: bool) {
         // See if we can find a local variable with this name
@@ -482,7 +514,7 @@ impl<'a> Compiler<'a> {
             self.error("Too many local variables in function.");
             return;
         }
-        self.locals.add(name.to_string());
+        self.locals.declare(name.to_string());
     }
     fn declare_variable(&mut self) {
         // Global
@@ -515,6 +547,8 @@ impl<'a> Compiler<'a> {
 
     fn define_variable(&mut self, global: u8) {
         if self.is_scoped() {
+            // We are in a scope, so define the local so it is ready for use
+            self.locals.define();
             return;
         }
         self.emit_bytes(opcode::OP_DEFINE_GLOBAL, global);
