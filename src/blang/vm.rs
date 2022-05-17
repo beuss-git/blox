@@ -993,4 +993,74 @@ mod tests {
         );
         assert_eq!(res, InterpretResult::RuntimeError);
     }
+    #[test]
+    fn test_if() {
+        let mut vm = new_vm();
+        let res = vm.interpret(
+            r#"
+        if (true) {
+            print "hello";
+        }
+        "#
+            .to_string(),
+        );
+        assert_eq!(res, InterpretResult::Ok);
+        assert_eq!(vm.last_value().unwrap(), Value::String("hello".to_string()));
+
+        vm = new_vm();
+        let res = vm.interpret(
+            r#"
+        if (false) {
+            print "hello";
+        }
+        "#
+            .to_string(),
+        );
+        assert_eq!(res, InterpretResult::Ok);
+        assert!(vm.stack_empty());
+
+        vm = new_vm();
+        let res = vm.interpret(
+            r#"
+        if (true) {
+            print "hello";
+        } else {
+            print "world";
+        }
+        "#
+            .to_string(),
+        );
+        assert_eq!(res, InterpretResult::Ok);
+        assert_eq!(vm.last_value().unwrap(), Value::String("hello".to_string()));
+
+        vm = new_vm();
+        let res = vm.interpret(
+            r#"
+        if (false) {
+            print "hello";
+        } else {
+            print "world";
+        }
+        "#
+            .to_string(),
+        );
+        assert_eq!(res, InterpretResult::Ok);
+        assert_eq!(vm.last_value().unwrap(), Value::String("world".to_string()));
+
+        /*vm = new_vm();
+        let res = vm.interpret(
+            r#"
+        if (true) {
+            print "hello";
+        } else if (false) {
+            print "world";
+        } else {
+            print "!";
+        }
+        "#
+            .to_string(),
+        );
+        assert_eq!(res, InterpretResult::Ok);
+        assert_eq!(vm.last_value().unwrap(), Value::String("hello".to_string()));*/
+    }
 }
