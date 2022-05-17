@@ -227,6 +227,20 @@ impl<'a> Compiler<'a> {
         self.emit_byte(byte2);
     }
 
+    fn emit_jump_back(&mut self, to: usize) {
+        self.emit_byte(opcode::OP_JUMP_BACK);
+
+        let offset = self.current_chunk.code.len() - to + 2;
+
+        if offset > u16::MAX as usize {
+            self.error("Jump exceeds 16-bit maximum.");
+        }
+
+        // Encode offset into the 16-bit jump instruction
+        self.emit_byte((offset >> 8) as u8);
+        self.emit_byte(offset as u8);
+    }
+
     fn emit_jump(&mut self, instruction: u8) -> usize {
         self.emit_byte(instruction);
         self.emit_bytes(0xff, 0xff);
@@ -430,6 +444,71 @@ impl<'a> Compiler<'a> {
         self.patch_jump(else_jump);*/
     }
 
+    fn for_statement(&mut self) {
+        self.begin_scope();
+
+        self.consume(TokenKind::LeftParen, "Expect '(' after 'for'.");
+        if self.match_token(TokenKind::Semicolon) {
+            // No initializer, so we just jump to the loop condition
+            //let loop_start = self.current_chunk.code.len();
+            //self.emit_jump(opcode::OP_JUMP);
+            //self.loop_stack.push(loop_start);
+        } else if self.match_token(TokenKind::Var) {
+            self.var_declaration();
+        } else {
+            // Initialize is an expression
+            self.expression_statement();
+        }
+
+        let mut loop_start = self.current_chunk.code.len();
+        let mut loop_end = None;
+        if !self.match_token(TokenKind::Semicolon) {
+            // Compile condition
+            self.expression();
+            self.consume(TokenKind::Semicolon, "Expect ';' after loop condition.");
+
+            // Jump over loop body if condition is false
+            loop_end = Some(self.emit_jump(opcode::OP_JUMP_IF_FALSE));
+            self.emit_byte(opcode::OP_POP);
+        }
+        if !self.match_token(TokenKind::RightParen) {
+            // Jump to body
+            let body_jump = self.emit_jump(opcode::OP_JUMP);
+            let increment_start = self.current_chunk.code.len();
+            // Compile the increment expression
+            self.expression();
+            self.emit_byte(opcode::OP_POP);
+
+            // Pop the value of the increment expression
+            //self.emit_byte(opcode::OP_POP);
+
+            self.consume(TokenKind::RightParen, "Expect ')' after for clauses.");
+
+            // Jump back to start of loop
+            //let jump_to_start_increment = self.emit_jump(opcode::OP_JUMP_BACK);
+            //self.patch_jump_to(jump_to_start_increment, loop_start);
+            self.emit_jump_back(loop_start);
+
+            loop_start = increment_start;
+            self.patch_jump(body_jump);
+        }
+        self.statement();
+
+        //let jump_to_start = self.emit_jump(opcode::OP_JUMP_BACK);
+        //self.patch_jump_to(jump_to_start, loop_start);
+        self.emit_jump_back(loop_start);
+
+        match loop_end {
+            Some(loop_end) => {
+                self.patch_jump(loop_end);
+                // Pop the condition value from stack
+                self.emit_byte(opcode::OP_POP);
+            }
+            None => {}
+        }
+
+        self.end_scope();
+    }
     fn while_statement(&mut self) {
         // Start address of loop
         let loop_start = self.current_chunk.code.len();
@@ -485,6 +564,8 @@ impl<'a> Compiler<'a> {
             self.print_statement();
         } else if self.match_token(TokenKind::If) {
             self.if_statement();
+        } else if self.match_token(TokenKind::For) {
+            self.for_statement();
         } else if self.match_token(TokenKind::While) {
             self.while_statement();
         } else if self.match_token(TokenKind::LeftBrace) {
