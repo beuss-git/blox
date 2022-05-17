@@ -47,6 +47,7 @@ ops!(
     OP_EQUAL,
     OP_GREATER,
     OP_LESS,
+    OP_MODULO,
     OP_ADD,
     OP_SUBTRACT,
     OP_MULTIPLY,

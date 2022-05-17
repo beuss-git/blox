@@ -60,6 +60,7 @@ impl VM {
                 opcode::OP_GREATER => binary_op!(self, Boolean, >),
                 opcode::OP_LESS => binary_op!(self, Boolean, <),
                 //opcode::OP_ADD => binary_op!(self, Number, +),
+                opcode::OP_MODULO => binary_op!(self, Number, %),
                 opcode::OP_ADD => match (self.pop(), self.pop()) {
                     (Value::Number(b), Value::Number(a)) => self.push(Value::Number(a + b)),
                     (Value::String(b), Value::String(a)) => self.push(Value::String(a + &b)),

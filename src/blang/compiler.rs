@@ -532,6 +532,7 @@ impl<'a> Compiler<'a> {
             TokenKind::GreaterEqual => self.emit_bytes(opcode::OP_LESS, opcode::OP_NOT),
             TokenKind::Less => self.emit_byte(opcode::OP_LESS),
             TokenKind::LessEqual => self.emit_bytes(opcode::OP_GREATER, opcode::OP_NOT),
+            TokenKind::Percent => self.emit_byte(opcode::OP_MODULO),
             TokenKind::Plus => self.emit_byte(opcode::OP_ADD),
             TokenKind::Minus => self.emit_byte(opcode::OP_SUBTRACT),
             TokenKind::Star => self.emit_byte(opcode::OP_MULTIPLY),
@@ -566,7 +567,8 @@ impl<'a> Compiler<'a> {
 
     fn parse_infix(&mut self) {
         match self.parser.previous.kind {
-            TokenKind::Minus
+            TokenKind::Percent
+            | TokenKind::Minus
             | TokenKind::Plus
             | TokenKind::Slash
             | TokenKind::Star
@@ -712,7 +714,7 @@ impl<'a> From<TokenKind> for Precedence {
     fn from(kind: TokenKind) -> Self {
         match kind {
             TokenKind::Minus | TokenKind::Plus => Precedence::Term,
-            TokenKind::Slash | TokenKind::Star => Precedence::Factor,
+            TokenKind::Slash | TokenKind::Star | TokenKind::Percent => Precedence::Factor,
             TokenKind::BangEqual | TokenKind::EqualEqual => Precedence::Equality,
             TokenKind::Greater
             | TokenKind::GreaterEqual
