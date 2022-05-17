@@ -129,6 +129,18 @@ impl VM {
                     let value = self.pop();
                     self.globals.insert(name.to_string(), value);
                 }
+                opcode::OP_SET_GLOBAL => {
+                    let name = self.read_constant();
+                    let value = self.pop();
+                    // Possible to get an iter instead of checking and then inserting?
+                    // Can also just insert, check ret value and return error if it is not None, but make sure to delete value in there
+                    if self.globals.contains_key(&name.to_string()) {
+                        self.globals.insert(name.to_string(), value);
+                    } else {
+                        self.runtime_error(&format!("Undefined variable '{}'.", name));
+                        return InterpretResult::RuntimeError;
+                    }
+                }
                 opcode::OP_EQUAL => match (self.pop(), self.pop()) {
                     (a, b) => self.push(Value::Boolean(Value::is_same(a, b))),
                 },

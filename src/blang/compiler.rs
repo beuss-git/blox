@@ -147,7 +147,15 @@ impl<'a> Compiler<'a> {
     }
     fn named_variable(&mut self, name: Token) {
         let constant_index = self.identifier_constant(name);
-        self.emit_bytes(opcode::OP_GET_GLOBAL, constant_index);
+
+        if self.match_token(TokenKind::Equal) {
+            // If we match with an equals sign, we know it's a variable assignment
+            self.expression();
+            self.emit_bytes(opcode::OP_SET_GLOBAL, constant_index);
+        } else {
+            // If not it's a variable access
+            self.emit_bytes(opcode::OP_GET_GLOBAL, constant_index);
+        }
     }
     fn variable(&mut self) {
         self.named_variable(self.parser.previous);
