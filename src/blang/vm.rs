@@ -8,6 +8,7 @@ use super::{
 };
 
 const DEBUG_TRACE_EXECUTION: bool = false;
+const DEBUG_DISASSEMBLY: bool = false;
 pub struct VM {
     chunk: Chunk,
     pc: usize,
@@ -41,6 +42,10 @@ impl VM {
         let mut compiler = Compiler::new(source, &mut self.chunk);
         if !compiler.compile() {
             return InterpretResult::CompileError;
+        }
+
+        if DEBUG_DISASSEMBLY {
+            compiler.disassemble();
         }
 
         self.pc = 0;

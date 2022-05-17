@@ -40,9 +40,11 @@ impl<'a> Compiler<'a> {
 
         self.end_compiler();
 
-        //self.current_chunk.disassemble_chunk("code");
-
         !self.parser.had_error
+    }
+
+    pub fn disassemble(&self) {
+        self.current_chunk.disassemble_chunk("code");
     }
 
     // TODO: move to parser?
