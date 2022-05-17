@@ -72,12 +72,8 @@ impl Chunk {
 
     /// Adds constant into our chunk and returns the index of the constant
     pub fn add_constant(&mut self, value: Value, line: usize) -> usize {
-        self.write_byte(opcode::OP_CONSTANT, line);
         self.constants.add_value(value);
         let index = self.constants.len() - 1;
-
-        // NOTE: Currently limited to 255 constants
-        self.write_byte(index as u8, line);
 
         index
     }

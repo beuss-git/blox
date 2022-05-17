@@ -117,14 +117,19 @@ impl<'a> Compiler<'a> {
         self.emit_byte(opcode::OP_RETURN);
     }
 
-    fn emit_constant(&mut self, constant: Value) -> u8 {
+    fn make_constant(&mut self, value: Value) -> u8 {
         let constant_index = self
             .current_chunk
-            .add_constant(constant, self.parser.previous.line);
+            .add_constant(value, self.parser.previous.line);
+
         if constant_index > u8::MAX as usize {
             self.error("Too many constants in one chunk.");
         }
         constant_index as u8
+    }
+    fn emit_constant(&mut self, constant: Value) {
+        let constant_index = self.make_constant(constant);
+        self.emit_bytes(opcode::OP_CONSTANT, constant_index);
     }
 
     fn end_compiler(&mut self) {
@@ -321,12 +326,14 @@ impl<'a> Compiler<'a> {
     fn identifier_constant(&mut self, token: Token) -> u8 {
         let lexeme = self.lexer.get_lexeme(&token);
 
-        self.emit_constant(Value::String(lexeme))
+        self.make_constant(Value::String(lexeme))
     }
 
     fn parse_variable(&mut self, message: &str) -> u8 {
+        // Consume the identifier
         self.consume(TokenKind::Identifier, message);
 
+        // Make identifier constant
         self.identifier_constant(self.parser.previous)
     }
 
