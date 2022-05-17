@@ -193,7 +193,7 @@ impl VM {
 
     fn runtime_error(&self, message: &str) {
         println!("[line {}] {}", self.chunk.get_line(self.pc), message);
-        println!("{}", self.chunk.disassemble_instruction(self.pc));
+        println!("{}", self.chunk.disassemble_instruction(self.pc - 1));
     }
 
     #[allow(dead_code)]
@@ -701,4 +701,123 @@ mod tests {
             InterpretResult::CompileError
         );
     }
+
+    #[test]
+    fn test_default_nil() {
+        let mut vm = new_vm();
+
+        vm.interpret(
+            r#"
+        var a;
+        a;
+        "#
+            .to_string(),
+        );
+        assert_eq!(vm.last_value().unwrap(), Value::Nil);
+    }
+
+    #[test]
+    fn test_nil_value() {
+        let mut vm = new_vm();
+
+        vm.interpret(
+            r#"
+        var a = nil;
+        a;
+        "#
+            .to_string(),
+        );
+        assert_eq!(vm.last_value().unwrap(), Value::Nil);
+    }
+
+    #[test]
+    fn test_number_value() {
+        let mut vm = new_vm();
+
+        vm.interpret(
+            r#"
+        var a = 5.0;
+        a;
+        "#
+            .to_string(),
+        );
+        assert_eq!(vm.last_value().unwrap(), Value::Number(5.0));
+    }
+
+    #[test]
+    fn test_string_value() {
+        let mut vm = new_vm();
+
+        vm.interpret(
+            r#"
+        var a = "hello";
+        a;
+        "#
+            .to_string(),
+        );
+        assert_eq!(vm.last_value().unwrap(), Value::String("hello".to_string()));
+    }
+
+    #[test]
+    fn test_bool_value() {
+        let mut vm = new_vm();
+
+        vm.interpret(
+            r#"
+        var a = true;
+        a;
+        "#
+            .to_string(),
+        );
+        assert_eq!(vm.last_value().unwrap(), Value::Boolean(true));
+    }
+
+    #[test]
+    fn test_value_assignment() {
+        let mut vm = new_vm();
+
+        // Number
+        vm.interpret(
+            r#"
+        var a;
+        a = 1.0;
+        "#
+            .to_string(),
+        );
+        assert_eq!(vm.last_value().unwrap(), Value::Number(1.0));
+
+        // Bool
+        vm = new_vm();
+        vm.interpret(
+            r#"
+        var a;
+        a = false;
+        "#
+            .to_string(),
+        );
+        assert_eq!(vm.last_value().unwrap(), Value::Boolean(false));
+
+        // String
+        vm = new_vm();
+        vm.interpret(
+            r#"
+        var a;
+        a = "hello";
+        "#
+            .to_string(),
+        );
+        assert_eq!(vm.last_value().unwrap(), Value::String("hello".to_string()));
+
+        // Nil
+        vm = new_vm();
+        vm.interpret(
+            r#"
+        var a;
+        a = nil;
+        "#
+            .to_string(),
+        );
+        assert_eq!(vm.last_value().unwrap(), Value::Nil);
+    }
+    // TODO: Scope test
 }
