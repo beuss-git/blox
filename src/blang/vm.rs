@@ -192,6 +192,7 @@ impl VM {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub enum InterpretResult {
     Ok,
     CompileError,
@@ -200,7 +201,7 @@ pub enum InterpretResult {
 
 #[cfg(test)]
 mod tests {
-    use crate::blang::{chunk::Chunk, value::Value};
+    use crate::blang::{chunk::Chunk, value::Value, vm::InterpretResult};
 
     use super::VM;
 
@@ -649,5 +650,45 @@ mod tests {
             .to_string(),
         );
         assert_eq!(vm.last_value().unwrap(), Value::Number(3.0));
+
+        // Assign to invalid assignment target
+        vm = new_vm();
+        assert_eq!(
+            vm.interpret(
+                r#"
+                    a + b = c;
+                "#
+                .to_string(),
+            ),
+            InterpretResult::CompileError
+        );
+
+        // Assign to invalid assignment target
+        vm = new_vm();
+        assert_eq!(
+            vm.interpret(
+                r#"
+                    var c = 3;
+                    a + b = c;
+                "#
+                .to_string(),
+            ),
+            InterpretResult::CompileError
+        );
+
+        // Assign to invalid assignment target
+        vm = new_vm();
+        assert_eq!(
+            vm.interpret(
+                r#"
+                    var c = 3;
+                    var a = 1;
+                    var b = 2;
+                    a + b = c;
+                "#
+                .to_string(),
+            ),
+            InterpretResult::CompileError
+        );
     }
 }
