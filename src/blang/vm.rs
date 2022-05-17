@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use super::{chunk::Chunk, compiler::Compiler, opcode, value::Value};
 
 const DEBUG_TRACE_EXECUTION: bool = false;
-const DEBUG_DISASSEMBLY: bool = false;
+const DEBUG_DISASSEMBLY: bool = true;
 pub struct VM {
     chunk: Chunk,
     pc: usize,
@@ -97,6 +97,17 @@ impl VM {
                     self.last_printed = Some(value.clone());
                     println!("{}", value);
                 }
+                opcode::OP_JUMP => {
+                    let offset = self.read_short();
+                    self.pc += offset as usize;
+                }
+                opcode::OP_JUMP_IF_FALSE => {
+                    let offset = self.read_short();
+                    if self.peek().is_falsey() {
+                        self.pc += offset as usize;
+                    }
+                    // Else keep on churning
+                }
                 opcode::OP_RETURN => {
                     return InterpretResult::Ok;
                 }
@@ -171,6 +182,11 @@ impl VM {
     fn read_byte(&mut self) -> u8 {
         self.pc += 1;
         self.chunk.code[self.pc - 1]
+    }
+
+    fn read_short(&mut self) -> u16 {
+        self.pc += 2;
+        ((self.chunk.code[self.pc - 2] as u16) << 8) | self.chunk.code[self.pc - 1] as u16
     }
     fn read_constant(&mut self) -> Value {
         let constant_index = self.read_byte();

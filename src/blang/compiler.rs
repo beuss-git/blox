@@ -227,6 +227,13 @@ impl<'a> Compiler<'a> {
         self.emit_byte(byte2);
     }
 
+    fn emit_jump(&mut self, instruction: u8) -> usize {
+        self.emit_byte(instruction);
+        self.emit_bytes(0xff, 0xff);
+        // Return the offset of the jump instruction
+        self.current_chunk.code.len() - 2
+    }
+
     fn emit_return(&mut self) {
         self.emit_byte(opcode::OP_RETURN);
     }
@@ -244,6 +251,18 @@ impl<'a> Compiler<'a> {
     fn emit_constant(&mut self, constant: Value) {
         let constant_index = self.make_constant(constant);
         self.emit_bytes(opcode::OP_CONSTANT, constant_index);
+    }
+
+    fn patch_jump(&mut self, offset: usize) {
+        let jump_offset = self.current_chunk.code.len() - offset as usize - 2;
+
+        if jump_offset > u16::MAX as usize {
+            self.error("Jump exceeds 16-bit maximum.");
+        }
+
+        // Encode offset into the 16-bit jump instruction
+        self.current_chunk.code[offset] = (jump_offset >> 8) as u8;
+        self.current_chunk.code[offset + 1] = jump_offset as u8;
     }
 
     fn end_compiler(&mut self) {
@@ -354,6 +373,51 @@ impl<'a> Compiler<'a> {
         self.consume(TokenKind::Semicolon, "Expect ';' after expression.");
         self.emit_byte(opcode::OP_POP);
     }
+    fn if_statement(&mut self) {
+        self.consume(TokenKind::LeftParen, "Expect '(' after 'if'.");
+        // Compile condition expression
+        self.expression();
+        self.consume(TokenKind::RightParen, "Expect ')' after condition.");
+
+        let then_jump = self.emit_jump(opcode::OP_JUMP_IF_FALSE);
+        // Compile statement for if branch
+        self.statement();
+
+        // This is to jump over potential else branch after finishing execution of the then statement
+        let else_jump = self.emit_jump(opcode::OP_JUMP);
+
+        // Patch the jump to the end of the if branch (that we jump to if condition is false)
+        // we now know how long the if branch is
+        self.patch_jump(then_jump);
+
+        // Clean up the statement value from stack
+        self.emit_byte(opcode::OP_POP);
+
+        if self.match_token(TokenKind::Else) {
+            // Compile statement for else branch
+            self.statement();
+        }
+        // Patch the jump to the end of the else statement
+        self.patch_jump(else_jump);
+
+        /*self.consume(TokenKind::LeftParen, "Expect '(' after 'if'.");
+        self.expression();
+        self.consume(TokenKind::RightParen, "Expect ')' after condition.");
+
+        let then_jump = self.emit_jump(opcode::OP_JUMP_IF_FALSE);
+        self.emit_byte(opcode::OP_POP);
+        self.statement();
+
+        let else_jump = self.emit_jump(opcode::OP_JUMP);
+
+        self.patch_jump(then_jump);
+        self.emit_byte(opcode::OP_POP);
+
+        if self.match_token(TokenKind::Else) {
+            self.statement();
+        }
+        self.patch_jump(else_jump);*/
+    }
 
     fn print_statement(&mut self) {
         self.expression();
@@ -385,6 +449,8 @@ impl<'a> Compiler<'a> {
     fn statement(&mut self) {
         if self.match_token(TokenKind::Print) {
             self.print_statement();
+        } else if self.match_token(TokenKind::If) {
+            self.if_statement();
         } else if self.match_token(TokenKind::LeftBrace) {
             self.begin_scope();
             self.block();
