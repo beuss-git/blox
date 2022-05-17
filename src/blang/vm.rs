@@ -813,4 +813,71 @@ mod tests {
             Value::Number(5.0),
         );
     }
+
+    #[test]
+    fn test_for_loop() {
+        expect_value(
+            r#"
+        var a = 0;
+        for (;a < 5;) {
+            a = a + 1;
+        }
+        print a;
+        "#,
+            Value::Number(5.0),
+        );
+
+        expect_value(
+            r#"
+        var a = 0;
+        for (;a < 5; a = a + 1) { }
+        print a;
+        "#,
+            Value::Number(5.0),
+        );
+
+        expect_value(
+            r#"
+        var a;
+        for (a = 0;a < 5; a = a + 1) { }
+        print a;
+        "#,
+            Value::Number(5.0),
+        );
+
+        expect_value(
+            r#"
+        var a;
+        var b = 0;
+        for (a = 3;a < 5; a = a + 1) {
+            b = b + 1;
+        }
+        print b;
+        "#,
+            Value::Number(2.0),
+        );
+
+        expect_value(
+            r#"
+        var b = 0;
+        for (var a = 3;a < 5; a = a + 1) {
+            b = b + 1;
+        }
+        print b;
+        "#,
+            Value::Number(2.0),
+        );
+
+        expect_value(
+            r#"
+            var b = 0;
+        var a = 3;
+        for ( a = 3;a < 5; a = a + 1) {
+            b = b + 1;
+        }
+        print b;
+        "#,
+            Value::Number(2.0),
+        );
+    }
 }
