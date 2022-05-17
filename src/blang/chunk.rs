@@ -132,6 +132,7 @@ impl Chunk {
             opcode::OP_NOT => simple_instruction(name, self, offset),
             opcode::OP_NEGATE => simple_instruction(name, self, offset),
             opcode::OP_PRINT => simple_instruction(name, self, offset),
+            opcode::OP_JUMP_BACK => jump_instruction(name, 1, self, offset),
             opcode::OP_JUMP => jump_instruction(name, 1, self, offset),
             opcode::OP_JUMP_IF_FALSE => jump_instruction(name, 1, self, offset),
             opcode::OP_RETURN => simple_instruction(name, self, offset),

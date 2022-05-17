@@ -97,6 +97,10 @@ impl VM {
                     self.last_printed = Some(value.clone());
                     println!("{}", value);
                 }
+                opcode::OP_JUMP_BACK => {
+                    let offset = self.read_short();
+                    self.pc -= offset as usize;
+                }
                 opcode::OP_JUMP => {
                     let offset = self.read_short();
                     self.pc += offset as usize;
