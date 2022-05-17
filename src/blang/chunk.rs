@@ -15,10 +15,10 @@ fn simple_instruction(name: &str, chunk: &Chunk, offset: usize) -> usize {
 
 /// Prints the instruction and returns the offset to the next instruction.
 fn constant_instruction(name: &str, chunk: &Chunk, offset: usize) -> usize {
-    let constant_index = chunk.read_chunk(offset + 1);
+    let slot = chunk.read_chunk(offset + 1);
     //print!("{}: {} {}, ", chunk.get_line(offset), name, constant_index);
-    print!("{}: {}: ", chunk.get_line(offset), name);
-    chunk.get_value(constant_index as usize).print();
+    print!("{}: {}, slot {}, ", chunk.get_line(offset), name, slot);
+    chunk.get_value(slot as usize).print();
     println!();
     offset + 2
 }
