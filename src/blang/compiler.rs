@@ -253,8 +253,19 @@ impl<'a> Compiler<'a> {
         self.emit_bytes(opcode::OP_CONSTANT, constant_index);
     }
 
+    fn patch_jump_to(&mut self, offset: usize, to: usize) {
+        let jump_offset = self.current_chunk.code.len() - to;
+
+        if jump_offset > u16::MAX as usize {
+            self.error("Jump exceeds 16-bit maximum.");
+        }
+
+        // Encode offset into the 16-bit jump instruction
+        self.current_chunk.code[offset] = (jump_offset >> 8) as u8;
+        self.current_chunk.code[offset + 1] = jump_offset as u8;
+    }
     fn patch_jump(&mut self, offset: usize) {
-        let jump_offset = self.current_chunk.code.len() - offset as usize - 2;
+        let jump_offset = self.current_chunk.code.len() - offset - 2;
 
         if jump_offset > u16::MAX as usize {
             self.error("Jump exceeds 16-bit maximum.");
@@ -419,6 +430,29 @@ impl<'a> Compiler<'a> {
         self.patch_jump(else_jump);*/
     }
 
+    fn while_statement(&mut self) {
+        // Start address of loop
+        let loop_start = self.current_chunk.code.len();
+
+        self.consume(TokenKind::LeftParen, "Expect '(' after 'while'.");
+        // Compile the condition expression
+        self.expression();
+        self.consume(TokenKind::RightParen, "Expect ')' after condition.");
+
+        let jump_to_end = self.emit_jump(opcode::OP_JUMP_IF_FALSE);
+
+        // Pop the condition value from stack
+        self.emit_byte(opcode::OP_POP);
+
+        // Compile the body statement
+        self.statement();
+
+        let jump_to_start = self.emit_jump(opcode::OP_JUMP_BACK);
+        self.patch_jump_to(jump_to_start, loop_start);
+
+        self.patch_jump(jump_to_end);
+    }
+
     fn print_statement(&mut self) {
         self.expression();
         self.consume(TokenKind::Semicolon, "Expect ';' after value.");
@@ -451,6 +485,8 @@ impl<'a> Compiler<'a> {
             self.print_statement();
         } else if self.match_token(TokenKind::If) {
             self.if_statement();
+        } else if self.match_token(TokenKind::While) {
+            self.while_statement();
         } else if self.match_token(TokenKind::LeftBrace) {
             self.begin_scope();
             self.block();
