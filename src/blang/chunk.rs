@@ -29,18 +29,18 @@ fn byte_instruction(name: &str, chunk: &Chunk, offset: usize) -> usize {
     offset + 2
 }
 
-fn jump_instruction(name: &str, sign: usize, chunk: &Chunk, offset: usize) -> usize {
+fn jump_instruction(name: &str, positive: bool, chunk: &Chunk, offset: usize) -> usize {
     let offset_jump: u16 =
         (((chunk.read_chunk(offset + 1) as u16) << 8) | chunk.read_chunk(offset + 2) as u16);
 
     let line = chunk.get_line(offset);
     // Print 16-bit jump offset
-    println!(
-        "{}: {} {}",
-        line,
-        name,
-        offset + 3 + sign * offset_jump as usize
-    );
+    let address = if positive {
+        offset + 3 + offset_jump as usize
+    } else {
+        offset + 3 - offset_jump as usize
+    };
+    println!("{}: {} {}", line, name, address);
     offset + 3
 }
 
@@ -132,9 +132,9 @@ impl Chunk {
             opcode::OP_NOT => simple_instruction(name, self, offset),
             opcode::OP_NEGATE => simple_instruction(name, self, offset),
             opcode::OP_PRINT => simple_instruction(name, self, offset),
-            opcode::OP_JUMP_BACK => jump_instruction(name, 1, self, offset),
-            opcode::OP_JUMP => jump_instruction(name, 1, self, offset),
-            opcode::OP_JUMP_IF_FALSE => jump_instruction(name, 1, self, offset),
+            opcode::OP_JUMP_BACK => jump_instruction(name, false, self, offset),
+            opcode::OP_JUMP => jump_instruction(name, true, self, offset),
+            opcode::OP_JUMP_IF_FALSE => jump_instruction(name, true, self, offset),
             opcode::OP_RETURN => simple_instruction(name, self, offset),
             opcode::OP_CONSTANT => constant_instruction(name, self, offset),
             opcode::OP_NIL => simple_instruction(name, self, offset),
