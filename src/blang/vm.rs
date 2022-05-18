@@ -11,6 +11,7 @@ use super::value::{
 
 const DEBUG_TRACE_EXECUTION: bool = false;
 const DEBUG_DISASSEMBLY: bool = false;
+const MAX_FRAMES: usize = 255;
 
 struct CallFrame {
     function: Rc<Function>, // The function being called
@@ -23,12 +24,20 @@ impl CallFrame {
     //pub fn chunk(&self) -> &Chunk {
     //&self.chunk.clone()
     //}
+    fn new(function: Rc<Function>, chunk: Rc<Chunk>, stack_top: u8, arg_count: u8) -> Self {
+        Self {
+            function,
+            pc: 0,
+            first_slot: (stack_top - arg_count - 1) as usize,
+            chunk,
+        }
+    }
     pub fn disassemble_instruction(&self) -> usize {
         self.chunk.disassemble_instruction(self.pc)
     }
     pub fn print_line(&self, message: &str) {
         println!("[line {}] {}", self.chunk.get_line(self.pc), message);
-        self.chunk.disassemble_instruction(self.pc);
+        //self.chunk.disassemble_instruction(self.pc);
     }
     pub fn add_pc(&mut self, val: usize) {
         self.pc += val;
@@ -52,6 +61,7 @@ impl CallFrame {
     }
 }
 pub struct VM {
+    compiler: Compiler,
     value_stack: Vec<Value>,
     last_printed: Option<Value>,
     globals: HashMap<Rc<str>, Value>,
@@ -74,6 +84,7 @@ macro_rules! binary_op {
 impl VM {
     pub fn new() -> Self {
         Self {
+            compiler: Compiler::new(),
             value_stack: Vec::new(),
             last_printed: None,
             globals: HashMap::new(),
@@ -82,23 +93,24 @@ impl VM {
         }
     }
     pub fn interpret(&mut self, source: String) -> InterpretResult {
-        let mut compiler = Compiler::new();
-        let compile_result = compiler.compile(source);
+        let compile_result = self.compiler.compile(source);
         match &compile_result {
             Some(function) => {
                 self.push(Value::Function(function.clone()));
 
-                let func_chunk = compiler.chunk_at_index(function.chunk_index());
+                // Call the entry function
+                self.call(function, 0);
+                /*let func_chunk = self.compiler.chunk_at_index(function.chunk_index());
 
                 self.frame_stack.push(CallFrame {
                     function: function.clone(),
                     pc: 0,
                     first_slot: self.value_stack.len() - 1,
                     chunk: func_chunk,
-                });
+                });*/
 
                 if DEBUG_DISASSEMBLY {
-                    compiler.disassemble();
+                    self.compiler.disassemble();
                 }
 
                 self.run()
@@ -132,7 +144,7 @@ impl VM {
     fn run(&mut self) -> InterpretResult {
         loop {
             if DEBUG_TRACE_EXECUTION {
-                self.print_stacktrace();
+                self.print_value_stack();
                 //self.chunk.disassemble_instruction(self.pc);
                 self.frame().disassemble_instruction();
                 //.disassemble_instruction(self.pc - self.chunk.code.len());
@@ -200,8 +212,30 @@ impl VM {
                     }
                     // Else keep on churning
                 }
+                opcode::OP_CALL => {
+                    let arg_count = self.read_byte() as usize;
+                    let function = self.peek_n(arg_count).clone();
+                    if !self.call_function(function, arg_count as u8) {
+                        return InterpretResult::RuntimeError;
+                    }
+                }
                 opcode::OP_RETURN => {
-                    return InterpretResult::Ok;
+                    //return InterpretResult::Ok;
+                    let result = self.pop();
+                    self.frame_stack.pop();
+                    if self.frame_stack.is_empty() {
+                        self.pop();
+                        return InterpretResult::Ok;
+                    }
+
+                    let slot = self.frame().first_slot;
+
+                    // TODO: optimize this, don't use vec, just use an array and set the index
+                    // Pop all the values used in the frame off the stack
+                    while self.value_stack.len() <= slot {
+                        self.value_stack.pop();
+                    }
+                    self.push(result);
                 }
                 opcode::OP_CONSTANT => {
                     let constant: Value = self.read_constant();
@@ -218,7 +252,7 @@ impl VM {
                 opcode::OP_SET_LOCAL => {
                     let slot = self.read_byte() as usize;
 
-                    let value = self.peek();
+                    let value = self.peek().clone();
                     // Set the value via the current frame
                     self.set_value(slot, &value);
                 }
@@ -262,11 +296,11 @@ impl VM {
                 }
                 opcode::OP_SET_GLOBAL => {
                     let name = self.read_constant();
-                    let value = self.peek();
                     // Possible to get an iter instead of checking and then inserting?
                     // Can also just insert, check ret value and return error if it is not None, but make sure to delete value in there
                     match name {
                         Value::String(str) => {
+                            let value = self.peek().clone();
                             if self.globals.contains_key(&str) {
                                 self.globals.insert(str, value);
                             } else {
@@ -293,8 +327,62 @@ impl VM {
         //InterpretResult::Ok
     }
 
-    fn peek(&self) -> Value {
-        self.value_stack.last().expect("Stack empty").clone()
+    fn peek_n(&self, n: usize) -> &Value {
+        let stack_len = self.value_stack.len();
+        &self.value_stack[stack_len - 1 - n]
+    }
+    fn peek(&self) -> &Value {
+        self.value_stack.last().expect("Stack empty")
+    }
+
+    fn call(&mut self, function: &Rc<Function>, arg_count: u8) -> bool {
+        if arg_count as usize != function.arity() {
+            self.runtime_error(&format!(
+                "Expected {} arguments, but got {}.",
+                function.arity(),
+                arg_count
+            ));
+            return false;
+        }
+        if self.frame_stack.len() == MAX_FRAMES {
+            self.runtime_error("Stack overflow.");
+            return false;
+        }
+        // Insert a new callframe
+        let frame = CallFrame::new(
+            function.clone(),
+            self.compiler.chunk_at_index(function.chunk_index()),
+            (self.value_stack.len()) as u8,
+            arg_count,
+        );
+        self.frame_stack.push(frame);
+        true
+    }
+
+    fn stack_trace(&self) {
+        for frame in self.frame_stack.iter().rev() {
+            let chunk = self.compiler.chunk_at_index(frame.function.chunk_index());
+            let line = chunk.get_line(frame.pc());
+            print!(
+                "[line {}] in {}\n",
+                line,
+                Value::Function(frame.function.clone())
+            );
+        }
+    }
+    // Is it proper to use Result like this? Are there better ways?
+    fn call_function(&mut self, function: Value, arg_count: u8) -> bool {
+        match &function {
+            Value::Function(f) => {
+                //let mut frame = Frame::new(f.chunk, arg_count as usize);
+                //self.frames.push(frame);
+                self.call(f, arg_count)
+            }
+            _ => {
+                self.runtime_error("Can only call functions.");
+                false
+            }
+        }
     }
 
     fn read_byte(&mut self) -> u8 {
@@ -305,17 +393,12 @@ impl VM {
     fn read_short(&mut self) -> u16 {
         self.frame_mut().add_pc(2);
         ((self.frame().byte_relative(-2) as u16) << 8) | (self.frame().byte_relative(-1) as u16)
-
-        //self.frame().chunk.code[self.frame().pc - 2] as u16
-        //| (self.frame().chunk.code[self.frame().pc - 1] as u16)
-        //<< 8((self.chunk.code[self.pc - 2] as u16) << 8)
-        //| self.chunk.code[self.pc - 1] as u16
     }
     fn read_constant(&mut self) -> Value {
         let constant_index = self.read_byte();
         self.frame().get_value(constant_index as usize)
     }
-    fn print_stacktrace(&self) {
+    fn print_value_stack(&self) {
         for value in self.value_stack.iter() {
             print!("[ {} ]", value);
         }
@@ -333,6 +416,8 @@ impl VM {
 
     fn runtime_error(&self, message: &str) {
         self.frame().print_line(message);
+
+        self.stack_trace();
     }
 
     #[allow(dead_code)]

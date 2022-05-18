@@ -167,6 +167,8 @@ impl Compiler {
     }
 
     fn emit_return(&mut self) {
+        // Default return value is nil
+        self.emit_byte(opcode::OP_NIL);
         self.emit_byte(opcode::OP_RETURN);
     }
 
@@ -598,6 +600,11 @@ impl Compiler {
         }
     }
 
+    fn call(&mut self) {
+        let argument_count = self.argument_list();
+        self.emit_bytes(opcode::OP_CALL, argument_count);
+    }
+
     fn literal(&mut self) {
         match self.parser.previous.kind {
             TokenKind::False => self.emit_byte(opcode::OP_FALSE),
@@ -637,6 +644,7 @@ impl Compiler {
             | TokenKind::LessEqual => self.binary(),
             TokenKind::And => self.and(),
             TokenKind::Or => self.or(),
+            TokenKind::LeftParen => self.call(),
             _ => {
                 self.error("Expect infix expression.");
                 return;
@@ -723,6 +731,27 @@ impl Compiler {
         self.emit_bytes(opcode::OP_DEFINE_GLOBAL, global);
     }
 
+    fn argument_list(&mut self) -> u8 {
+        let mut argument_count = 0;
+        if !self.check(TokenKind::RightParen) {
+            // Continue parsing argument expressions until we see no more commas
+            loop {
+                self.expression();
+                if argument_count == 255 {
+                    self.error("Can't have more than 255 arguments.");
+                }
+                argument_count += 1;
+                if !self.match_token(TokenKind::Comma) {
+                    break;
+                }
+            }
+        }
+
+        self.consume(TokenKind::RightParen, "Expect ')' after arguments.");
+
+        argument_count
+    }
+
     /// Compiles an 'and' statement
     fn and(&mut self) {
         // Short circuit the jump if the left operand is falsey
@@ -785,6 +814,7 @@ impl<'a> From<TokenKind> for Precedence {
             | TokenKind::LessEqual => Precedence::Comparison,
             TokenKind::And => Precedence::And,
             TokenKind::Or => Precedence::Or,
+            TokenKind::LeftParen => Precedence::Call,
             _ => Precedence::None,
         }
     }
