@@ -1,7 +1,9 @@
+use std::rc::Rc;
+
 use super::lexer::Token;
 use super::opcode;
 use super::value::Value;
-use super::{chunk::Chunk, lexer::Lexer, lexer::TokenKind, parser::Parser, locals::Locals};
+use super::{chunk::Chunk, lexer::Lexer, lexer::TokenKind, locals::Locals, parser::Parser};
 
 pub struct Compiler<'a> {
     parser: Parser,
@@ -186,12 +188,10 @@ impl<'a> Compiler<'a> {
     }
     fn string(&mut self) {
         let token = &self.parser.previous;
-        let lexeme = self.lexer.get_lexeme(token);
+        let lexeme = self.lexer.get_lexeme(token).to_string();
         // Remove the quotes
-        let trimmed = &lexeme[1..lexeme.len() - 1];
-        let trimmed_str = trimmed.to_string();
 
-        self.emit_constant(Value::String(trimmed_str));
+        self.emit_constant(Value::String(Rc::from(&lexeme[1..lexeme.len() - 1])));
     }
     fn resolve_local(&mut self, name: Token) -> Option<usize> {
         let lexeme = self.lexer.get_lexeme(&name);
@@ -566,10 +566,9 @@ impl<'a> Compiler<'a> {
     }
 
     fn identifier_constant(&mut self, token: Token) -> u8 {
-        let lexeme = self.lexer.get_lexeme(&token);
+        let lexeme = self.lexer.get_lexeme(&token).to_string();
 
-        let constant = lexeme.to_string();
-        self.make_constant(Value::String(constant))
+        self.make_constant(Value::String(Rc::from(lexeme)))
     }
 
     fn add_local(&mut self, name: String) {

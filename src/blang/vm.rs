@@ -1,15 +1,15 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, rc::Rc};
 
 use super::{chunk::Chunk, compiler::Compiler, opcode, value::Value};
 
 const DEBUG_TRACE_EXECUTION: bool = false;
-const DEBUG_DISASSEMBLY: bool = true;
+const DEBUG_DISASSEMBLY: bool = false;
 pub struct VM {
     chunk: Chunk,
     pc: usize,
     stack: Vec<Value>,
     last_printed: Option<Value>,
-    globals: HashMap<String, Value>,
+    globals: HashMap<Rc<str>, Value>,
 }
 
 macro_rules! binary_op {
@@ -63,14 +63,18 @@ impl VM {
                 opcode::OP_MODULO => binary_op!(self, Number, %),
                 opcode::OP_ADD => match (self.pop(), self.pop()) {
                     (Value::Number(b), Value::Number(a)) => self.push(Value::Number(a + b)),
-                    (Value::String(b), Value::String(a)) => self.push(Value::String(a + &b)),
+                    (Value::String(b), Value::String(a)) => {
+                        self.push(Value::String(Rc::from(a.to_string() + &b.to_string())))
+                    }
                     (Value::Number(b), Value::String(a)) => {
-                        self.push(Value::String(a + &b.to_string()))
+                        self.push(Value::String(Rc::from(a.to_string() + &b.to_string())))
                     }
                     (Value::Boolean(b), Value::String(a)) => {
-                        self.push(Value::String(a + &b.to_string()))
+                        self.push(Value::String(Rc::from(a.to_string() + &b.to_string())))
                     }
-                    (Value::Nil, Value::String(b)) => self.push(Value::String(b + "nil")),
+                    (Value::Nil, Value::String(b)) => {
+                        self.push(Value::String(Rc::from(b.to_string() + "nil")))
+                    }
                     _ => {
                         self.runtime_error("Operands must be numbers.");
                         return InterpretResult::RuntimeError;
@@ -141,30 +145,54 @@ impl VM {
                 }
                 opcode::OP_GET_GLOBAL => {
                     let name = self.read_constant();
-                    let value = self.globals.get(&name.to_string()).cloned();
-                    if let Some(value) = value {
-                        self.push(value);
-                    } else {
-                        self.runtime_error(&format!("Undefined variable '{}'.", name));
-                        return InterpretResult::RuntimeError;
+                    match &name {
+                        Value::String(str) => {
+                            let value = self.globals.get(str).cloned();
+                            if let Some(value) = value {
+                                self.push(value);
+                            } else {
+                                self.runtime_error(&format!("Undefined variable '{}'.", name));
+                                return InterpretResult::RuntimeError;
+                            }
+                        }
+                        _ => {
+                            self.runtime_error("Expected a string.");
+                            return InterpretResult::RuntimeError;
+                        }
                     }
                 }
                 opcode::OP_DEFINE_GLOBAL => {
                     // TODO: Check if it is a string
                     let name = self.read_constant();
                     let value = self.pop();
-                    self.globals.insert(name.to_string(), value);
+                    match name {
+                        Value::String(str) => {
+                            self.globals.insert(str, value);
+                        }
+                        _ => {
+                            self.runtime_error("Expected a string.");
+                            return InterpretResult::RuntimeError;
+                        }
+                    }
                 }
                 opcode::OP_SET_GLOBAL => {
                     let name = self.read_constant();
                     let value = self.peek();
                     // Possible to get an iter instead of checking and then inserting?
                     // Can also just insert, check ret value and return error if it is not None, but make sure to delete value in there
-                    if self.globals.contains_key(&name.to_string()) {
-                        self.globals.insert(name.to_string(), value);
-                    } else {
-                        self.runtime_error(&format!("Undefined variable '{}'.", name));
-                        return InterpretResult::RuntimeError;
+                    match name {
+                        Value::String(str) => {
+                            if self.globals.contains_key(&str) {
+                                self.globals.insert(str, value);
+                            } else {
+                                self.runtime_error(&format!("Undefined variable '{}'.", str));
+                                return InterpretResult::RuntimeError;
+                            }
+                        }
+                        _ => {
+                            self.runtime_error("Expected a string.");
+                            return InterpretResult::RuntimeError;
+                        }
                     }
                 }
                 opcode::OP_EQUAL => match (self.pop(), self.pop()) {
@@ -233,6 +261,8 @@ pub enum InterpretResult {
 
 #[cfg(test)]
 mod tests {
+    use std::rc::Rc;
+
     use crate::blang::{chunk::Chunk, value::Value, vm::InterpretResult};
 
     use super::VM;
@@ -282,27 +312,21 @@ mod tests {
     fn test_string_concatenation() {
         expect_value(
             r#"print "Hello" + " " + "World!";"#,
-            Value::String("Hello World!".to_string()),
+            Value::String(Rc::from("Hello World!")),
         );
         expect_value(
             r#"print "Hel" + "lo" + ", " + "Wo" + "rld!";"#,
-            Value::String("Hello, World!".to_string()),
+            Value::String(Rc::from("Hello, World!")),
         );
-        expect_value(
-            r#"print "one" + "two";"#,
-            Value::String("onetwo".to_string()),
-        );
-        expect_value(r#"print "one" + 2;"#, Value::String("one2".to_string()));
-        expect_value(r#"print "one" + 2.1;"#, Value::String("one2.1".to_string()));
-        expect_value(
-            r#"print "one" + true;"#,
-            Value::String("onetrue".to_string()),
-        );
+        expect_value(r#"print "one" + "two";"#, Value::String(Rc::from("onetwo")));
+        expect_value(r#"print "one" + 2;"#, Value::String(Rc::from("one2")));
+        expect_value(r#"print "one" + 2.1;"#, Value::String(Rc::from("one2.1")));
+        expect_value(r#"print "one" + true;"#, Value::String(Rc::from("onetrue")));
         expect_value(
             r#"print "one" + false;"#,
-            Value::String("onefalse".to_string()),
+            Value::String(Rc::from("onefalse")),
         );
-        expect_value(r#"print "one" + nil;"#, Value::String("onenil".to_string()));
+        expect_value(r#"print "one" + nil;"#, Value::String(Rc::from("onenil")));
     }
     #[test]
     fn test_subtraction() {
@@ -544,7 +568,6 @@ mod tests {
             Value::Number(5.0),
         );
     }
-
     #[test]
     fn test_string_value() {
         expect_value(
@@ -552,7 +575,7 @@ mod tests {
         var a = "hello";
         print a;
         "#,
-            Value::String("hello".to_string()),
+            Value::String(Rc::from("hello")),
         );
     }
 
@@ -596,7 +619,7 @@ mod tests {
         a = "hello";
         print a;
         "#,
-            Value::String("hello".to_string()),
+            Value::String(Rc::from("hello")),
         );
 
         // Nil
@@ -638,7 +661,7 @@ mod tests {
             }
 
         "#,
-            Value::String("outer".to_string()),
+            Value::String(Rc::from("outer")),
         );
 
         expect_value(
@@ -651,7 +674,7 @@ mod tests {
             }
 
         "#,
-            Value::String("outer".to_string()),
+            Value::String(Rc::from("outer")),
         );
 
         expect_value(
@@ -738,7 +761,7 @@ mod tests {
             print "hello";
         }
         "#,
-            Value::String("hello".to_string()),
+            Value::String(Rc::from("hello")),
         );
 
         expect_none(
@@ -757,7 +780,7 @@ mod tests {
             print "world";
         }
         "#,
-            Value::String("hello".to_string()),
+            Value::String(Rc::from("hello")),
         );
 
         expect_value(
@@ -768,7 +791,7 @@ mod tests {
             print "world";
         }
         "#,
-            Value::String("world".to_string()),
+            Value::String(Rc::from("world")),
         );
 
         /*vm = new_vm();

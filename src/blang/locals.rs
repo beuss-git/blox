@@ -1,4 +1,3 @@
-
 pub struct Locals {
     stack: Vec<Local>,
     locals_count: u8,
@@ -42,7 +41,7 @@ impl Locals {
     /// Declares a local variable
     pub fn declare(&mut self, name: String) {
         self.stack[self.locals_count as usize] = Local {
-            name: name,
+            name: name.to_string(),
             depth: self.scope_depth,
             initialized: false,
         };
@@ -71,7 +70,6 @@ impl Locals {
         }
         None
     }
-
 }
 #[derive(Debug, Clone)]
 pub struct Local {

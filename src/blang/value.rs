@@ -1,12 +1,12 @@
 use core::fmt;
-use std::str::FromStr;
+use std::{rc::Rc, str::FromStr};
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum Value {
     Boolean(bool),
     Nil,
     Number(f64),
-    String(String),
+    String(Rc<str>),
 }
 
 impl Default for Value {
@@ -83,10 +83,16 @@ impl FromStr for Value {
             "nil" => Ok(Value::Nil),
             s => Ok(match s.parse::<f64>() {
                 Ok(n) => Value::Number(n),
-                Err(_) => Value::String(s.to_string()),
+                Err(_) => Value::String(Rc::from(s)),
             }),
         }
     }
+}
+
+struct Function {
+    name: String,
+    chunk_index: usize,
+    arity: usize,
 }
 
 #[cfg(test)]
@@ -120,7 +126,7 @@ mod tests {
 
     #[test]
     fn test_value_size() {
-        assert_eq!(size_of::<Value>(), 32);
+        assert_eq!(size_of::<Value>(), 24);
     }
 
     #[test]
