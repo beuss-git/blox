@@ -28,7 +28,7 @@ impl CallFrame {
     }
     pub fn print_line(&self, message: &str) {
         println!("[line {}] {}", self.chunk.get_line(self.pc), message);
-        println!("{}", self.chunk.disassemble_instruction(self.pc));
+        self.chunk.disassemble_instruction(self.pc);
     }
     pub fn add_pc(&mut self, val: usize) {
         self.pc += val;
@@ -88,13 +88,13 @@ impl VM {
             Some(function) => {
                 self.push(Value::Function(function.clone()));
 
-                let ch = compiler.chunk_at_index(function.chunk_index());
+                let func_chunk = compiler.chunk_at_index(function.chunk_index());
 
                 self.frame_stack.push(CallFrame {
                     function: function.clone(),
                     pc: 0,
                     first_slot: self.value_stack.len() - 1,
-                    chunk: ch,
+                    chunk: func_chunk,
                 });
 
                 if DEBUG_DISASSEMBLY {
@@ -109,7 +109,10 @@ impl VM {
         }
     }
     fn frame(&self) -> &CallFrame {
-        self.frame_stack.last().unwrap()
+        //let frame_count = self.frame_count;
+        let frame_count = self.frame_stack.len();
+
+        &self.frame_stack[frame_count - 1]
     }
 
     fn frame_mut(&mut self) -> &mut CallFrame {
@@ -198,7 +201,6 @@ impl VM {
                     // Else keep on churning
                 }
                 opcode::OP_RETURN => {
-                    self.frame_stack.pop();
                     return InterpretResult::Ok;
                 }
                 opcode::OP_CONSTANT => {

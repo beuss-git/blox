@@ -295,10 +295,13 @@ impl Compiler {
 
     fn function(&mut self, function_type: FunctionType) {
         let old_function_type = self.function_type;
+        let old_function = self.function.clone();
         self.function_type = function_type;
+        self.chunks.push(Chunk::new());
 
         let function_name = self.lexer.get_lexeme(&self.parser.previous).to_string();
-        self.function.set_name(&function_name);
+        self.function.set_name(function_name.clone());
+        self.function.set_chunk_index(self.chunks.len() - 1);
 
         self.begin_scope();
 
@@ -327,9 +330,12 @@ impl Compiler {
         // Parse in the body
         self.block();
 
+        self.end_scope();
+
         let function = self.end_compiler();
 
         self.function_type = old_function_type;
+        self.function = old_function;
 
         let constant = self.make_constant(Value::Function(function));
         self.emit_bytes(opcode::OP_CONSTANT, constant);

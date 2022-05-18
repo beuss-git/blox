@@ -27,7 +27,10 @@ impl Function {
     pub fn inc_arity(&mut self) {
         self.arity += 1;
     }
-    pub fn set_name(&mut self, name: &str) {
+    pub fn set_chunk_index(&mut self, index: usize) {
+        self.chunk_index = index;
+    }
+    pub fn set_name(&mut self, name: String) {
         self.name = Rc::from(name);
     }
     pub fn arity(&self) -> usize {
