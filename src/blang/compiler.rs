@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use super::lexer::Token;
 use super::opcode;
-use super::value::Value;
+use super::value::{function::Function, Value};
 use super::{chunk::Chunk, lexer::Lexer, lexer::TokenKind, locals::Locals, parser::Parser};
 
 pub struct Compiler<'a> {
@@ -10,25 +10,17 @@ pub struct Compiler<'a> {
     lexer: Lexer,
     current_chunk: &'a mut Chunk,
     locals: Locals,
+    function: Rc<Function>,
 }
 
 impl<'a> Compiler<'a> {
-    /*fn compile(source: &str) -> Result<Chunk, CompilerError> {
-        /et mut chunk = Chunk::new();
-        let mut parser = Parser::new(source);
-        while let Some(statement) = parser.parse_statement() {
-            //println!("{:?}", statement);
-            chunk.write_statement(statement);
-        }
-        Ok(chunk)
-    }
-    */
     pub fn new(source: String, chunk: &'a mut Chunk) -> Self {
         Self {
             parser: Parser::new(),
             lexer: Lexer::new(source),
             current_chunk: chunk,
             locals: Locals::new(),
+            function: Rc::from(Function::new()),
         }
     }
 

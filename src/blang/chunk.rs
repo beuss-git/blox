@@ -1,5 +1,7 @@
-use super::opcode;
-use super::value::*;
+use super::{
+    opcode,
+    value::{value_array::ValueArray, Printer, Value},
+};
 
 pub struct Chunk {
     pub code: Vec<u8>,
@@ -31,7 +33,7 @@ fn byte_instruction(name: &str, chunk: &Chunk, offset: usize) -> usize {
 
 fn jump_instruction(name: &str, positive: bool, chunk: &Chunk, offset: usize) -> usize {
     let offset_jump: u16 =
-        (((chunk.read_chunk(offset + 1) as u16) << 8) | chunk.read_chunk(offset + 2) as u16);
+        ((chunk.read_chunk(offset + 1) as u16) << 8) | chunk.read_chunk(offset + 2) as u16;
 
     let line = chunk.get_line(offset);
     // Print 16-bit jump offset

@@ -1,5 +1,10 @@
+pub mod function;
+pub mod value_array;
+
 use core::fmt;
 use std::{rc::Rc, str::FromStr};
+
+use self::function::Function;
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum Value {
@@ -7,6 +12,7 @@ pub enum Value {
     Nil,
     Number(f64),
     String(Rc<str>),
+    Function(Rc<Function>),
 }
 
 impl Default for Value {
@@ -34,10 +40,6 @@ impl Value {
     }
 }
 
-pub struct ValueArray {
-    values: Vec<Value>,
-}
-
 pub trait Printer {
     fn print(&self);
 }
@@ -48,21 +50,6 @@ impl Printer for Value {
     }
 }
 
-impl ValueArray {
-    pub fn new() -> Self {
-        Self { values: Vec::new() }
-    }
-    pub fn add_value(&mut self, value: Value) {
-        self.values.push(value);
-    }
-    pub fn get_value(&self, index: usize) -> Value {
-        self.values[index].clone()
-    }
-    pub fn len(&self) -> usize {
-        self.values.len()
-    }
-}
-
 impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -70,6 +57,7 @@ impl fmt::Display for Value {
             Value::Nil => write!(f, "nil"),
             Value::Number(n) => write!(f, "{}", n),
             Value::String(s) => write!(f, "{}", s),
+            Value::Function(fun) => write!(f, "<fun {}>", fun.name),
         }
     }
 }
@@ -89,40 +77,11 @@ impl FromStr for Value {
     }
 }
 
-struct Function {
-    name: String,
-    chunk_index: usize,
-    arity: usize,
-}
-
 #[cfg(test)]
 mod tests {
     use std::mem::size_of;
 
     use super::*;
-
-    #[test]
-    fn test_value_array() {
-        let mut array = ValueArray::new();
-
-        array.add_value(Value::Number(1.0));
-        array.add_value(Value::Number(2.0));
-        array.add_value(Value::Number(3.0));
-        assert_eq!(array.get_value(0), Value::Number(1.0));
-        assert_eq!(array.get_value(1), Value::Number(2.0));
-        assert_eq!(array.get_value(2), Value::Number(3.0));
-        assert_eq!(array.len(), 3);
-
-        array.add_value(Value::Boolean(true));
-        array.add_value(Value::Boolean(false));
-        assert_eq!(array.get_value(3), Value::Boolean(true));
-        assert_eq!(array.get_value(4), Value::Boolean(false));
-        assert_eq!(array.len(), 5);
-
-        array.add_value(Value::Nil);
-        assert_eq!(array.get_value(5), Value::Nil);
-        assert_eq!(array.len(), 6);
-    }
 
     #[test]
     fn test_value_size() {
