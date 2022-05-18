@@ -266,17 +266,6 @@ impl VM {
                     let slot = self.read_byte() as usize;
                     // Get the value via the current frame
                     let value = self.get_value(slot).clone();
-                    match &value {
-                        Value::Function(f) => {
-                            self.print_value_stack();
-
-                            let value2 = self.get_value(slot).clone();
-                            if f.name() == "fib" {
-                                println!("FIB {}", value2);
-                            }
-                        }
-                        _ => {}
-                    }
                     self.push(value);
                 }
                 opcode::OP_GET_GLOBAL => {
