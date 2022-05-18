@@ -7,7 +7,7 @@ use super::vm::VM;
 
 pub(crate) fn main() {
     let source = fs::read_to_string("sources/test.bl").unwrap();
-    let mut vm = VM::new(Chunk::new());
+    let mut vm = VM::new();
     vm.interpret(source);
     //let mut compiler = Compiler::new();
     //compiler.compile(source);

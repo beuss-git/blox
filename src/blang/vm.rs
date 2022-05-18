@@ -1,15 +1,63 @@
+use std::cell::{Cell, RefCell};
 use std::{collections::HashMap, rc::Rc};
 
-use super::{chunk::Chunk, compiler::Compiler, opcode, value::Value};
+use super::chunk::Chunk;
+use super::{compiler::Compiler, opcode};
+
+use super::value::{
+    function::{Function, FunctionType},
+    Value,
+};
 
 const DEBUG_TRACE_EXECUTION: bool = false;
 const DEBUG_DISASSEMBLY: bool = false;
+
+struct CallFrame {
+    function: Rc<Function>, // The function being called
+    pc: usize,              // Program counter for the call frame
+    first_slot: usize,      // The index of the first local slot in the call frame
+    chunk: Rc<Chunk>,       // The chunk of the function
+}
+
+impl CallFrame {
+    //pub fn chunk(&self) -> &Chunk {
+    //&self.chunk.clone()
+    //}
+    pub fn disassemble_instruction(&self) -> usize {
+        self.chunk.disassemble_instruction(self.pc)
+    }
+    pub fn print_line(&self, message: &str) {
+        println!("[line {}] {}", self.chunk.get_line(self.pc), message);
+        println!("{}", self.chunk.disassemble_instruction(self.pc));
+    }
+    pub fn add_pc(&mut self, val: usize) {
+        self.pc += val;
+    }
+    pub fn dec_pc(&mut self, val: usize) {
+        self.pc -= val;
+    }
+    pub fn pc(&self) -> usize {
+        self.pc
+    }
+    pub fn byte(&self, pc: usize) -> u8 {
+        self.chunk.read_chunk(pc)
+    }
+    pub fn get_value(&self, slot: usize) -> Value {
+        //self.chunk.borrow().get_value(self.first_slot + slot)
+        self.chunk.get_value(slot)
+    }
+
+    pub fn byte_relative(&self, offset: isize) -> u8 {
+        self.chunk.read_chunk((self.pc as isize + offset) as usize)
+    }
+}
 pub struct VM {
-    chunk: Chunk,
-    pc: usize,
-    stack: Vec<Value>,
+    value_stack: Vec<Value>,
     last_printed: Option<Value>,
     globals: HashMap<Rc<str>, Value>,
+
+    frame_stack: Vec<CallFrame>,
+    //frame_count: usize,
 }
 
 macro_rules! binary_op {
@@ -24,34 +72,66 @@ macro_rules! binary_op {
         };
 }
 impl VM {
-    pub fn new(chunk: Chunk) -> Self {
+    pub fn new() -> Self {
         Self {
-            chunk,
-            pc: 0,
-            stack: Vec::new(),
+            value_stack: Vec::new(),
             last_printed: None,
             globals: HashMap::new(),
+            frame_stack: Vec::new(),
+            //frame_count: 0,
         }
     }
     pub fn interpret(&mut self, source: String) -> InterpretResult {
-        let mut compiler = Compiler::new(source, &mut self.chunk);
-        if !compiler.compile() {
-            return InterpretResult::CompileError;
+        let mut compiler = Compiler::new(source);
+        let compile_result = compiler.compile();
+        match &compile_result {
+            Some(function) => {
+                self.push(Value::Function(function.clone()));
+
+                let ch = compiler.chunk_at_index(function.chunk_index);
+
+                self.frame_stack.push(CallFrame {
+                    function: function.clone(),
+                    pc: 0,
+                    first_slot: self.value_stack.len() - 1,
+                    chunk: ch,
+                });
+
+                if DEBUG_DISASSEMBLY {
+                    compiler.disassemble();
+                }
+
+                self.run()
+            }
+            None => {
+                return InterpretResult::CompileError;
+            }
         }
+    }
+    fn frame(&self) -> &CallFrame {
+        self.frame_stack.last().unwrap()
+    }
 
-        if DEBUG_DISASSEMBLY {
-            compiler.disassemble();
-        }
+    fn frame_mut(&mut self) -> &mut CallFrame {
+        //let frame_count = self.frame_count;
+        let frame_count = self.frame_stack.len();
 
-        self.pc = 0;
-
-        self.run()
+        &mut self.frame_stack[frame_count - 1]
+    }
+    fn get_value(&mut self, slot: usize) -> &Value {
+        let absolute_slot = self.frame().first_slot + slot;
+        &self.value_stack[absolute_slot]
+    }
+    fn set_value(&mut self, slot: usize, value: &Value) {
+        let absolute_slot = self.frame().first_slot + slot;
+        self.value_stack[absolute_slot] = value.clone();
     }
     fn run(&mut self) -> InterpretResult {
         loop {
             if DEBUG_TRACE_EXECUTION {
                 self.print_stacktrace();
-                self.chunk.disassemble_instruction(self.pc);
+                //self.chunk.disassemble_instruction(self.pc);
+                self.frame().disassemble_instruction();
                 //.disassemble_instruction(self.pc - self.chunk.code.len());
             }
             // TODO: make operations such as != >= and <= a single instruction
@@ -83,15 +163,15 @@ impl VM {
                 opcode::OP_SUBTRACT => binary_op!(self, Number, -),
                 opcode::OP_MULTIPLY => binary_op!(self, Number, *),
                 opcode::OP_DIVIDE => binary_op!(self, Number, /),
-                opcode::OP_NOT => match self.stack.pop() {
+                opcode::OP_NOT => match self.value_stack.pop() {
                     Some(x) => self.push(Value::Boolean(x.is_falsey())),
                     _ => {
                         self.runtime_error("Stack is empty.");
                         return InterpretResult::RuntimeError;
                     }
                 },
-                opcode::OP_NEGATE => match self.stack.pop() {
-                    Some(Value::Number(n)) => self.stack.push(Value::Number(-n)),
+                opcode::OP_NEGATE => match self.value_stack.pop() {
+                    Some(Value::Number(n)) => self.value_stack.push(Value::Number(-n)),
                     _ => {
                         self.runtime_error("Stack is empty");
                         return InterpretResult::RuntimeError;
@@ -104,16 +184,16 @@ impl VM {
                 }
                 opcode::OP_JUMP_BACK => {
                     let offset = self.read_short();
-                    self.pc -= offset as usize;
+                    self.frame_mut().dec_pc(offset as usize);
                 }
                 opcode::OP_JUMP => {
                     let offset = self.read_short();
-                    self.pc += offset as usize;
+                    self.frame_mut().add_pc(offset as usize);
                 }
                 opcode::OP_JUMP_IF_FALSE => {
                     let offset = self.read_short();
                     if self.peek().is_falsey() {
-                        self.pc += offset as usize;
+                        self.frame_mut().add_pc(offset as usize);
                     }
                     // Else keep on churning
                 }
@@ -136,11 +216,13 @@ impl VM {
                     let slot = self.read_byte() as usize;
 
                     let value = self.peek();
-                    self.stack[slot] = value;
+                    // Set the value via the current frame
+                    self.set_value(slot, &value);
                 }
                 opcode::OP_GET_LOCAL => {
                     let slot = self.read_byte() as usize;
-                    let value = self.stack[slot].clone();
+                    // Get the value via the current frame
+                    let value = self.get_value(slot).clone();
                     self.push(value);
                 }
                 opcode::OP_GET_GLOBAL => {
@@ -209,41 +291,45 @@ impl VM {
     }
 
     fn peek(&self) -> Value {
-        self.stack.last().expect("Stack empty").clone()
+        self.value_stack.last().expect("Stack empty").clone()
     }
 
     fn read_byte(&mut self) -> u8 {
-        self.pc += 1;
-        self.chunk.code[self.pc - 1]
+        self.frame_mut().add_pc(1);
+        self.frame().byte_relative(-1)
     }
 
     fn read_short(&mut self) -> u16 {
-        self.pc += 2;
-        ((self.chunk.code[self.pc - 2] as u16) << 8) | self.chunk.code[self.pc - 1] as u16
+        self.frame_mut().add_pc(2);
+        ((self.frame().byte_relative(-2) as u16) << 8) | (self.frame().byte_relative(-1) as u16)
+
+        //self.frame().chunk.code[self.frame().pc - 2] as u16
+        //| (self.frame().chunk.code[self.frame().pc - 1] as u16)
+        //<< 8((self.chunk.code[self.pc - 2] as u16) << 8)
+        //| self.chunk.code[self.pc - 1] as u16
     }
     fn read_constant(&mut self) -> Value {
         let constant_index = self.read_byte();
-        self.chunk.get_value(constant_index as usize)
+        self.frame().get_value(constant_index as usize)
     }
     fn print_stacktrace(&self) {
-        for value in self.stack.iter() {
+        for value in self.value_stack.iter() {
             print!("[ {} ]", value);
         }
         println!();
     }
     fn push(&mut self, value: Value) {
-        self.stack.push(value);
+        self.value_stack.push(value);
     }
     fn stack_empty(&self) -> bool {
-        self.stack.is_empty()
+        self.value_stack.is_empty()
     }
     fn pop(&mut self) -> Value {
-        self.stack.pop().expect("Stack is empty")
+        self.value_stack.pop().expect("Stack is empty")
     }
 
     fn runtime_error(&self, message: &str) {
-        println!("[line {}] {}", self.chunk.get_line(self.pc), message);
-        println!("{}", self.chunk.disassemble_instruction(self.pc));
+        self.frame().print_line(message);
     }
 
     #[allow(dead_code)]
@@ -263,13 +349,13 @@ pub enum InterpretResult {
 mod tests {
     use std::rc::Rc;
 
-    use crate::blang::{chunk::Chunk, value::Value, vm::InterpretResult};
+    use crate::blang::{value::Value, vm::InterpretResult};
 
     use super::VM;
 
     // TODO: Remove this when proper chunk support is implemented
     fn new_vm() -> VM {
-        VM::new(Chunk::new())
+        VM::new()
     }
 
     fn expect_value(expr: &str, expected: Value) {

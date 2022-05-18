@@ -3,6 +3,7 @@ use super::{
     value::{value_array::ValueArray, Printer, Value},
 };
 
+#[derive(PartialEq, Debug, Clone)]
 pub struct Chunk {
     pub code: Vec<u8>,
     pub constants: ValueArray,

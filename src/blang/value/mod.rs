@@ -1,10 +1,9 @@
 pub mod function;
 pub mod value_array;
 
+use self::function::Function;
 use core::fmt;
 use std::{rc::Rc, str::FromStr};
-
-use self::function::Function;
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum Value {
@@ -57,7 +56,14 @@ impl fmt::Display for Value {
             Value::Nil => write!(f, "nil"),
             Value::Number(n) => write!(f, "{}", n),
             Value::String(s) => write!(f, "{}", s),
-            Value::Function(fun) => write!(f, "<fun {}>", fun.name),
+            Value::Function(fun) => {
+                // If it's empty it's a script
+                if fun.name.is_empty() {
+                    write!(f, "<script>")
+                } else {
+                    write!(f, "<fun {}>", fun.name)
+                }
+            }
         }
     }
 }

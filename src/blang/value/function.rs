@@ -7,6 +7,11 @@ pub struct Function {
     pub arity: usize,
 }
 
+pub enum FunctionType {
+    Native,
+    UserDefined,
+}
+
 impl Function {
     pub fn new() -> Self {
         Self {

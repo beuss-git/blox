@@ -1,30 +1,50 @@
+use std::cell::RefCell;
+use std::error::Error;
 use std::rc::Rc;
 
 use super::lexer::Token;
 use super::opcode;
-use super::value::{function::Function, Value};
+use super::value::{
+    function::{Function, FunctionType},
+    Value,
+};
 use super::{chunk::Chunk, lexer::Lexer, lexer::TokenKind, locals::Locals, parser::Parser};
 
-pub struct Compiler<'a> {
+pub struct Compiler {
     parser: Parser,
     lexer: Lexer,
-    current_chunk: &'a mut Chunk,
-    locals: Locals,
-    function: Rc<Function>,
+    //current_chunk: &'a mut Chunk, // The current chunk we are compiling into
+    locals: Locals,         // All locals
+    function: Rc<Function>, // Active function being built
+    function_type: FunctionType,
+    chunks: Vec<Chunk>,
 }
 
-impl<'a> Compiler<'a> {
-    pub fn new(source: String, chunk: &'a mut Chunk) -> Self {
-        Self {
+impl Compiler {
+    pub fn new(source: String) -> Self {
+        let mut compiler = Self {
             parser: Parser::new(),
             lexer: Lexer::new(source),
-            current_chunk: chunk,
+            //current_chunk: chunk,
             locals: Locals::new(),
             function: Rc::from(Function::new()),
-        }
+            function_type: FunctionType::UserDefined,
+            chunks: Vec::new(),
+        };
+
+        // Set for the initial function
+        compiler.chunks.push(Chunk::new());
+
+        compiler.locals.declare(String::from("")); // Reserve slot 0 for the vm
+        compiler
     }
 
-    pub fn compile(&mut self) -> bool {
+    pub fn chunk_at_index(&self, index: usize) -> Rc<Chunk> {
+        // TODO: don't clone, and don't derive from it in chunk and valuaarray
+        Rc::from(self.chunks[index].clone())
+    }
+
+    pub fn compile(&mut self) -> Option<Rc<Function>> {
         self.parser.had_error = false;
         self.parser.panic_mode = false;
         // Consume the first token.
@@ -34,13 +54,25 @@ impl<'a> Compiler<'a> {
             self.declaration();
         }
 
-        self.end_compiler();
+        let function = self.end_compiler();
 
-        !self.parser.had_error
+        if self.parser.had_error {
+            None
+        } else {
+            Some(function)
+        }
     }
 
     pub fn disassemble(&self) {
-        self.current_chunk.disassemble_chunk("code");
+        self.current_chunk().disassemble_chunk("code");
+    }
+
+    pub fn current_chunk(&self) -> &Chunk {
+        &self.chunks[self.function.chunk_index]
+    }
+
+    pub fn current_chunk_mut(&mut self) -> &mut Chunk {
+        &mut self.chunks[self.function.chunk_index]
     }
 
     // TODO: move to parser?
@@ -98,8 +130,8 @@ impl<'a> Compiler<'a> {
     }
 
     fn emit_byte(&mut self, byte: u8) {
-        self.current_chunk
-            .write_byte(byte, self.parser.previous.line);
+        let line_num = self.parser.previous.line;
+        self.current_chunk_mut().write_byte(byte, line_num);
     }
     /*fn emit_bytes(&mut self, bytes: &[u8]) {
         for byte in bytes {
@@ -114,7 +146,7 @@ impl<'a> Compiler<'a> {
     fn emit_jump_back(&mut self, to: usize) {
         self.emit_byte(opcode::OP_JUMP_BACK);
 
-        let offset = self.current_chunk.code.len() - to + 2;
+        let offset = self.current_chunk().code.len() - to + 2;
 
         if offset > u16::MAX as usize {
             self.error("Jump exceeds 16-bit maximum.");
@@ -129,7 +161,7 @@ impl<'a> Compiler<'a> {
         self.emit_byte(instruction);
         self.emit_bytes(0xff, 0xff);
         // Return the offset of the jump instruction
-        self.current_chunk.code.len() - 2
+        self.current_chunk().code.len() - 2
     }
 
     fn emit_return(&mut self) {
@@ -137,9 +169,8 @@ impl<'a> Compiler<'a> {
     }
 
     fn make_constant(&mut self, value: Value) -> u8 {
-        let constant_index = self
-            .current_chunk
-            .add_constant(value, self.parser.previous.line);
+        let line_num = self.parser.previous.line;
+        let constant_index = self.current_chunk_mut().add_constant(value, line_num);
 
         if constant_index > u8::MAX as usize {
             self.error("Too many constants in one chunk.");
@@ -152,19 +183,31 @@ impl<'a> Compiler<'a> {
     }
 
     fn patch_jump(&mut self, offset: usize) {
-        let jump_offset = self.current_chunk.code.len() - offset - 2;
+        let jump_offset = self.current_chunk().code.len() - offset - 2;
 
         if jump_offset > u16::MAX as usize {
             self.error("Jump exceeds 16-bit maximum.");
         }
 
         // Encode offset into the 16-bit jump instruction
-        self.current_chunk.code[offset] = (jump_offset >> 8) as u8;
-        self.current_chunk.code[offset + 1] = jump_offset as u8;
+        self.current_chunk_mut().code[offset] = (jump_offset >> 8) as u8;
+        self.current_chunk_mut().code[offset + 1] = jump_offset as u8;
     }
 
-    fn end_compiler(&mut self) {
+    // Returns compiled function, the compiler only operates on functions
+    fn end_compiler(&mut self) -> Rc<Function> {
         self.emit_return();
+
+        if !self.parser.had_error {
+            let chunk_name = if self.function.name.is_empty() {
+                "<script>"
+            } else {
+                &self.function.name
+            };
+            self.current_chunk().disassemble_chunk(chunk_name)
+        }
+
+        self.function.clone()
     }
 
     fn begin_scope(&mut self) {
@@ -331,7 +374,7 @@ impl<'a> Compiler<'a> {
             self.expression_statement();
         }
 
-        let mut loop_start = self.current_chunk.code.len();
+        let mut loop_start = self.current_chunk().code.len();
         let mut loop_end = None;
         if !self.match_token(TokenKind::Semicolon) {
             // Compile condition
@@ -345,7 +388,7 @@ impl<'a> Compiler<'a> {
         if !self.match_token(TokenKind::RightParen) {
             // Jump to body
             let body_jump = self.emit_jump(opcode::OP_JUMP);
-            let increment_start = self.current_chunk.code.len();
+            let increment_start = self.current_chunk().code.len();
             // Compile the increment expression
             self.expression();
             self.emit_byte(opcode::OP_POP);
@@ -380,7 +423,7 @@ impl<'a> Compiler<'a> {
     }
     fn while_statement(&mut self) {
         // Start address of loop
-        let loop_start = self.current_chunk.code.len();
+        let loop_start = self.current_chunk().code.len();
 
         self.consume(TokenKind::LeftParen, "Expect '(' after 'while'.");
         // Compile the condition expression

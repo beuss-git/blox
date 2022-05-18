@@ -1,5 +1,6 @@
 use super::Value;
 
+#[derive(Clone, PartialEq, Debug)]
 pub struct ValueArray {
     values: Vec<Value>,
 }
