@@ -82,13 +82,13 @@ impl VM {
         }
     }
     pub fn interpret(&mut self, source: String) -> InterpretResult {
-        let mut compiler = Compiler::new(source);
-        let compile_result = compiler.compile();
+        let mut compiler = Compiler::new();
+        let compile_result = compiler.compile(source);
         match &compile_result {
             Some(function) => {
                 self.push(Value::Function(function.clone()));
 
-                let ch = compiler.chunk_at_index(function.chunk_index);
+                let ch = compiler.chunk_at_index(function.chunk_index());
 
                 self.frame_stack.push(CallFrame {
                     function: function.clone(),
@@ -198,6 +198,7 @@ impl VM {
                     // Else keep on churning
                 }
                 opcode::OP_RETURN => {
+                    self.frame_stack.pop();
                     return InterpretResult::Ok;
                 }
                 opcode::OP_CONSTANT => {

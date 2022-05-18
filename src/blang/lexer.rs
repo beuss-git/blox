@@ -16,9 +16,9 @@ fn is_digit(c: char) -> bool {
 }
 
 impl Lexer {
-    pub fn new(source: String) -> Self {
+    pub fn new() -> Self {
         Self {
-            source,
+            source: String::from(""),
             start: 0,
             current: 0,
             line: 1,
@@ -44,6 +44,10 @@ impl Lexer {
                 ("sleep", TokenKind::Sleep),
             ]),
         }
+    }
+
+    pub fn set_source(&mut self, source: String) {
+        self.source = source;
     }
 
     pub fn get_lexeme(&self, token: &Token) -> &str {

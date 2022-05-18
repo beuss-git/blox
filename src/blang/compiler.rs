@@ -14,20 +14,20 @@ pub struct Compiler {
     parser: Parser,
     lexer: Lexer,
     //current_chunk: &'a mut Chunk, // The current chunk we are compiling into
-    locals: Locals,         // All locals
-    function: Rc<Function>, // Active function being built
+    locals: Locals,     // All locals
+    function: Function, // Active function being built
     function_type: FunctionType,
     chunks: Vec<Chunk>,
 }
 
 impl Compiler {
-    pub fn new(source: String) -> Self {
+    pub fn new() -> Self {
         let mut compiler = Self {
             parser: Parser::new(),
-            lexer: Lexer::new(source),
+            lexer: Lexer::new(),
             //current_chunk: chunk,
             locals: Locals::new(),
-            function: Rc::from(Function::new()),
+            function: Function::new(),
             function_type: FunctionType::UserDefined,
             chunks: Vec::new(),
         };
@@ -44,7 +44,9 @@ impl Compiler {
         Rc::from(self.chunks[index].clone())
     }
 
-    pub fn compile(&mut self) -> Option<Rc<Function>> {
+    pub fn compile(&mut self, source: String) -> Option<Rc<Function>> {
+        self.lexer.set_source(source);
+
         self.parser.had_error = false;
         self.parser.panic_mode = false;
         // Consume the first token.
@@ -68,11 +70,11 @@ impl Compiler {
     }
 
     pub fn current_chunk(&self) -> &Chunk {
-        &self.chunks[self.function.chunk_index]
+        &self.chunks[self.function.chunk_index()]
     }
 
     pub fn current_chunk_mut(&mut self) -> &mut Chunk {
-        &mut self.chunks[self.function.chunk_index]
+        &mut self.chunks[self.function.chunk_index()]
     }
 
     // TODO: move to parser?
@@ -199,15 +201,15 @@ impl Compiler {
         self.emit_return();
 
         if !self.parser.had_error {
-            let chunk_name = if self.function.name.is_empty() {
+            let chunk_name = if self.function.name().is_empty() {
                 "<script>"
             } else {
-                &self.function.name
+                &self.function.name()
             };
             self.current_chunk().disassemble_chunk(chunk_name)
         }
 
-        self.function.clone()
+        Rc::from(self.function.clone())
     }
 
     fn begin_scope(&mut self) {
@@ -289,6 +291,61 @@ impl Compiler {
             self.declaration();
         }
         self.consume(TokenKind::RightBrace, "Expect '}' after block.");
+    }
+
+    fn function(&mut self, function_type: FunctionType) {
+        let old_function_type = self.function_type;
+        self.function_type = function_type;
+
+        let function_name = self.lexer.get_lexeme(&self.parser.previous).to_string();
+        self.function.set_name(&function_name);
+
+        self.begin_scope();
+
+        self.consume(TokenKind::LeftParen, "Expect '(' after function name.");
+
+        // If we have parameters, add them
+        while !self.check(TokenKind::RightParen) {
+            self.function.inc_arity();
+            if self.function.arity() > 255 {
+                self.error_at_current("Can't have more than 255 parameters");
+            }
+            let param_index = self.parse_variable("Expect parameter name");
+            self.define_variable(param_index);
+            if self.check(TokenKind::RightParen) {
+                break;
+            }
+            self.consume(TokenKind::Comma, "Expect ',' after parameter.");
+        }
+
+        self.consume(
+            TokenKind::RightParen,
+            "Expect ')' after function parameters.",
+        );
+        self.consume(TokenKind::LeftBrace, "Expect '{' before function body.");
+
+        // Parse in the body
+        self.block();
+
+        let function = self.end_compiler();
+
+        self.function_type = old_function_type;
+
+        let constant = self.make_constant(Value::Function(function));
+        self.emit_bytes(opcode::OP_CONSTANT, constant);
+    }
+
+    fn function_declaration(&mut self) {
+        // Get the name of the function
+        let global = self.parse_variable("Expect function name.");
+
+        // Define it, aka mark it as initialized
+        self.mark_initialized();
+
+        self.function(FunctionType::Native);
+
+        // Define it as a global, will also try to define the local, but that has already been done
+        self.define_variable(global);
     }
 
     fn var_declaration(&mut self) {
@@ -489,7 +546,9 @@ impl Compiler {
     }
 
     fn declaration(&mut self) {
-        if self.match_token(TokenKind::Var) {
+        if self.match_token(TokenKind::Fun) {
+            self.function_declaration();
+        } else if self.match_token(TokenKind::Var) {
             self.var_declaration();
         } else {
             self.statement();
@@ -642,10 +701,17 @@ impl Compiler {
         self.identifier_constant(self.parser.previous)
     }
 
+    fn mark_initialized(&mut self) {
+        if !self.is_scoped() {
+            return;
+        }
+        self.locals.define();
+    }
+
     fn define_variable(&mut self, global: u8) {
         if self.is_scoped() {
             // We are in a scope, so define the local so it is ready for use
-            self.locals.define();
+            self.mark_initialized();
             return;
         }
         self.emit_bytes(opcode::OP_DEFINE_GLOBAL, global);

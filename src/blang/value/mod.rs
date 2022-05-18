@@ -58,10 +58,10 @@ impl fmt::Display for Value {
             Value::String(s) => write!(f, "{}", s),
             Value::Function(fun) => {
                 // If it's empty it's a script
-                if fun.name.is_empty() {
+                if fun.name().is_empty() {
                     write!(f, "<script>")
                 } else {
-                    write!(f, "<fun {}>", fun.name)
+                    write!(f, "<fun {}>", fun.name())
                 }
             }
         }

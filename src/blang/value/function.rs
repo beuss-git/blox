@@ -1,12 +1,16 @@
-use std::rc::Rc;
+use std::{
+    ops::{Deref, DerefMut},
+    rc::Rc,
+};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Function {
-    pub name: Rc<str>,
-    pub chunk_index: usize,
-    pub arity: usize,
+    name: Rc<str>,
+    chunk_index: usize,
+    arity: usize,
 }
 
+#[derive(Clone, Copy)]
 pub enum FunctionType {
     Native,
     UserDefined,
@@ -19,5 +23,20 @@ impl Function {
             chunk_index: 0,
             arity: 0,
         }
+    }
+    pub fn inc_arity(&mut self) {
+        self.arity += 1;
+    }
+    pub fn set_name(&mut self, name: &str) {
+        self.name = Rc::from(name);
+    }
+    pub fn arity(&self) -> usize {
+        self.arity
+    }
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+    pub fn chunk_index(&self) -> usize {
+        self.chunk_index
     }
 }
