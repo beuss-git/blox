@@ -561,6 +561,11 @@ impl Compiler {
         } else {
             self.statement();
         }
+
+        // Synchronize after the declaration if in panic mode
+        if self.parser.panic_mode {
+            self.synchronize();
+        }
     }
 
     fn unary(&mut self) {
