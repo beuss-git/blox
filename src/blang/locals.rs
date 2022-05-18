@@ -1,3 +1,4 @@
+#[derive(Clone)]
 pub struct Locals {
     stack: Vec<Local>,
     locals_count: u8,
@@ -69,6 +70,13 @@ impl Locals {
             }
         }
         None
+    }
+
+    pub fn print(&self) {
+        for i in (0..self.locals_count) {
+            let local = &self.stack[i as usize];
+            println!("{:?}", local);
+        }
     }
 }
 #[derive(Debug, Clone)]

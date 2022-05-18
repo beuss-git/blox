@@ -24,11 +24,11 @@ impl CallFrame {
     //pub fn chunk(&self) -> &Chunk {
     //&self.chunk.clone()
     //}
-    fn new(function: Rc<Function>, chunk: Rc<Chunk>, stack_top: u8, arg_count: u8) -> Self {
+    fn new(function: Rc<Function>, chunk: Rc<Chunk>, first_slot: usize) -> Self {
         Self {
             function,
             pc: 0,
-            first_slot: (stack_top - arg_count - 1) as usize,
+            first_slot,
             chunk,
         }
     }
@@ -147,6 +147,8 @@ impl VM {
                 self.print_value_stack();
                 //self.chunk.disassemble_instruction(self.pc);
                 self.frame().disassemble_instruction();
+                println!("Slot: {}", self.frame().first_slot);
+                //self.compiler.locals.print();
                 //.disassemble_instruction(self.pc - self.chunk.code.len());
             }
             // TODO: make operations such as != >= and <= a single instruction
@@ -170,8 +172,10 @@ impl VM {
                     (Value::Nil, Value::String(b)) => {
                         self.push(Value::String(Rc::from(b.to_string() + "nil")))
                     }
-                    _ => {
-                        self.runtime_error("Operands must be numbers.");
+                    (b, a) => {
+                        self.runtime_error(
+                            format!("Operands must be numbers. Got {:?} and {:?}", a, b).as_str(),
+                        );
                         return InterpretResult::RuntimeError;
                     }
                 },
@@ -186,7 +190,7 @@ impl VM {
                     }
                 },
                 opcode::OP_NEGATE => match self.value_stack.pop() {
-                    Some(Value::Number(n)) => self.value_stack.push(Value::Number(-n)),
+                    Some(Value::Number(n)) => self.push(Value::Number(-n)),
                     _ => {
                         self.runtime_error("Stack is empty");
                         return InterpretResult::RuntimeError;
@@ -222,19 +226,21 @@ impl VM {
                 opcode::OP_RETURN => {
                     //return InterpretResult::Ok;
                     let result = self.pop();
+                    let slot = self.frame().first_slot;
                     self.frame_stack.pop();
+
                     if self.frame_stack.is_empty() {
                         self.pop();
                         return InterpretResult::Ok;
                     }
+                    //println!("{}", self.value_stack[slot]);
+                    //self.value_stack.truncate(self.value_stack.len() - slot);
+                    self.value_stack.truncate(slot);
+                    //self.print_value_stack();
+                    //for i in 0..slot {
+                    //self.value_stack.pop();
+                    //}
 
-                    let slot = self.frame().first_slot;
-
-                    // TODO: optimize this, don't use vec, just use an array and set the index
-                    // Pop all the values used in the frame off the stack
-                    while self.value_stack.len() <= slot {
-                        self.value_stack.pop();
-                    }
                     self.push(result);
                 }
                 opcode::OP_CONSTANT => {
@@ -260,6 +266,17 @@ impl VM {
                     let slot = self.read_byte() as usize;
                     // Get the value via the current frame
                     let value = self.get_value(slot).clone();
+                    match &value {
+                        Value::Function(f) => {
+                            self.print_value_stack();
+
+                            let value2 = self.get_value(slot).clone();
+                            if f.name() == "fib" {
+                                println!("FIB {}", value2);
+                            }
+                        }
+                        _ => {}
+                    }
                     self.push(value);
                 }
                 opcode::OP_GET_GLOBAL => {
@@ -352,9 +369,10 @@ impl VM {
         let frame = CallFrame::new(
             function.clone(),
             self.compiler.chunk_at_index(function.chunk_index()),
-            (self.value_stack.len()) as u8,
-            arg_count,
+            self.value_stack.len() - arg_count as usize - 1,
         );
+        //println!("{:?}", self.value_stack[frame.first_slot]);
+        //println!("First slot: {}", frame.first_slot);
         self.frame_stack.push(frame);
         true
     }
@@ -1075,6 +1093,19 @@ mod tests {
         print b;
         "#,
             Value::Number(2.0),
+        );
+    }
+
+    #[test]
+    fn test_function() {
+        expect_value(
+            r#"
+            fun test() {
+                return 5;
+            }
+            print test();
+        "#,
+            Value::Number(5.0),
         );
     }
 }

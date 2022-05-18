@@ -10,10 +10,10 @@ pub struct Function {
     arity: usize,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum FunctionType {
-    Native,
-    UserDefined,
+    Function,
+    Script,
 }
 
 impl Function {

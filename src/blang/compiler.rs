@@ -14,7 +14,7 @@ pub struct Compiler {
     parser: Parser,
     lexer: Lexer,
     //current_chunk: &'a mut Chunk, // The current chunk we are compiling into
-    locals: Locals,     // All locals
+    pub locals: Locals, // All locals
     function: Function, // Active function being built
     function_type: FunctionType,
     chunks: Vec<Chunk>,
@@ -28,7 +28,7 @@ impl Compiler {
             //current_chunk: chunk,
             locals: Locals::new(),
             function: Function::new(),
-            function_type: FunctionType::UserDefined,
+            function_type: FunctionType::Script,
             chunks: Vec::new(),
         };
 
@@ -217,6 +217,10 @@ impl Compiler {
     fn begin_scope(&mut self) {
         self.locals.begin_scope();
     }
+
+    fn end_scope_func(&mut self) {
+        self.locals.end_scope();
+    }
     fn end_scope(&mut self) {
         for _ in 0..self.locals.end_scope() {
             self.emit_byte(opcode::OP_POP);
@@ -332,9 +336,8 @@ impl Compiler {
         // Parse in the body
         self.block();
 
-        self.end_scope();
-
         let function = self.end_compiler();
+        self.end_scope_func();
 
         self.function_type = old_function_type;
         self.function = old_function;
@@ -348,9 +351,11 @@ impl Compiler {
         let global = self.parse_variable("Expect function name.");
 
         // Define it, aka mark it as initialized
-        self.mark_initialized();
+        if self.is_scoped() {
+            self.mark_initialized();
+        }
 
-        self.function(FunctionType::Native);
+        self.function(FunctionType::Function);
 
         // Define it as a global, will also try to define the local, but that has already been done
         self.define_variable(global);
@@ -384,6 +389,10 @@ impl Compiler {
         self.consume(TokenKind::RightParen, "Expect ')' after condition.");
 
         let then_jump = self.emit_jump(opcode::OP_JUMP_IF_FALSE);
+
+        // Pop then
+        self.emit_byte(opcode::OP_POP);
+
         // Compile statement for if branch
         self.statement();
 
@@ -514,6 +523,20 @@ impl Compiler {
         self.emit_byte(opcode::OP_PRINT);
     }
 
+    fn return_statement(&mut self) {
+        if self.function_type == FunctionType::Script {
+            self.error("Cannot return from top-level code.");
+        }
+        if self.match_token(TokenKind::Semicolon) {
+            // Just return nil
+            self.emit_return();
+        } else {
+            self.expression();
+            self.consume(TokenKind::Semicolon, "Expect ';' after return value.");
+            self.emit_byte(opcode::OP_RETURN);
+        }
+    }
+
     fn synchronize(&mut self) {
         self.parser.panic_mode = false;
         while self.parser.current.kind != TokenKind::Eof {
@@ -540,6 +563,8 @@ impl Compiler {
             self.print_statement();
         } else if self.match_token(TokenKind::If) {
             self.if_statement();
+        } else if self.match_token(TokenKind::Return) {
+            self.return_statement();
         } else if self.match_token(TokenKind::For) {
             self.for_statement();
         } else if self.match_token(TokenKind::While) {

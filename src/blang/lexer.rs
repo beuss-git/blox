@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+#[derive(Clone)]
 pub struct Lexer {
     pub source: String,
     pub start: usize,
