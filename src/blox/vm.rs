@@ -29,7 +29,7 @@ impl CallFrame {
     }
 }
 pub struct VM {
-    compiler: Compiler,
+    chunk: Chunk,
     value_stack: Vec<Value>,
     last_printed: Option<Value>,
     globals: HashMap<Rc<str>, Value>,
@@ -52,26 +52,28 @@ macro_rules! binary_op {
 impl VM {
     pub fn new() -> Self {
         Self {
-            compiler: Compiler::new(),
+            chunk: Chunk::new(),
             value_stack: Vec::new(),
             last_printed: None,
             globals: HashMap::new(),
             frame_stack: Vec::new(),
             pc: 0,
-            //frame_count: 0,
         }
     }
     pub fn interpret(&mut self, source: String) -> InterpretResult {
-        let compile_result = self.compiler.compile(source);
+        let mut compiler = Compiler::new();
+        let compile_result = compiler.compile(source, &mut self.chunk);
+
         match &compile_result {
             Some(function) => {
+                // Push the entry function onto the stack.
                 self.push(Value::Function(function.clone()));
 
                 // Call the entry function
                 self.call(function, 0);
 
                 if DEBUG_DISASSEMBLY {
-                    self.compiler.disassemble();
+                    //self.compiler.disassemble();
                 }
 
                 self.run()
@@ -81,6 +83,9 @@ impl VM {
             }
         }
     }
+    /*fn chunk() -> &'static Chunk {
+        self.chunk
+    }*/
     fn frame(&self) -> &CallFrame {
         //let frame_count = self.frame_count;
         let frame_count = self.frame_stack.len();
@@ -109,10 +114,9 @@ impl VM {
                 self.print_value_stack();
                 //self.compiler.chunk.disassemble_instruction(self.pc);
                 //self.frame().disassemble_instruction();
-                self.compiler
-                    .current_chunk()
-                    .disassemble_instruction(self.pc);
+                self.chunk.disassemble_instruction(self.pc);
                 println!("Slot: {}", self.frame().slot_offset);
+                println!("Frames: {}", self.frame_stack.len());
                 //self.compiler.locals.print();
                 //.disassemble_instruction(self.pc - self.chunk.code.len());
             }
@@ -337,7 +341,7 @@ impl VM {
 
     fn stack_trace(&self) {
         for frame in self.frame_stack.iter().rev() {
-            let chunk = self.compiler.current_chunk();
+            let chunk = &self.chunk;
             let line = chunk.get_line(self.pc);
             print!(
                 "[line {}] in {}\n",
@@ -364,7 +368,7 @@ impl VM {
     fn read_byte(&mut self) -> u8 {
         //self.frame_mut().add_pc(1);
         self.pc += 1;
-        self.compiler.current_chunk().read_chunk(self.pc - 1)
+        self.chunk.read_chunk(self.pc - 1)
         ////self.frame().byte_relative(-1)
     }
 
@@ -372,16 +376,14 @@ impl VM {
         //self.frame_mut().add_pc(2);
         self.pc += 2;
         //((self.frame().byte_relative(-2) as u16) << 8) | (self.frame().byte_relative(-1) as u16)
-        ((self.compiler.current_chunk().read_chunk(self.pc - 2) as u16) << 8)
-            | (self.compiler.current_chunk().read_chunk(self.pc - 1) as u16)
+        ((self.chunk.read_chunk(self.pc - 2) as u16) << 8)
+            | (self.chunk.read_chunk(self.pc - 1) as u16)
         //((self.frame().byte_relative(-2) as u16) << 8) | (self.frame().byte_relative(-1) as u16)
     }
     fn read_constant(&mut self) -> Value {
         let constant_index = self.read_byte();
         //self.frame().get_value(constant_index as usize)
-        self.compiler
-            .current_chunk()
-            .get_value(constant_index as usize)
+        self.chunk.get_value(constant_index as usize)
     }
     fn print_value_stack(&self) {
         for value in self.value_stack.iter() {
@@ -399,23 +401,31 @@ impl VM {
         self.value_stack.pop().expect("Stack is empty")
     }
 
-    fn runtime_error(&self, message: &str) {
-        println!(
-            "[line {}] {}",
-            self.compiler.current_chunk().get_line(self.pc),
-            message
-        );
-        self.compiler
-            .current_chunk()
-            .disassemble_instruction(self.pc);
+    /// Resets the stack to the default state with reserved value
+    fn reset_stack(&mut self) {
+        self.value_stack.truncate(1);
+    }
+
+    fn runtime_error(&mut self, message: &str) {
+        println!("[line {}] {}", self.chunk.get_line(self.pc), message);
+        self.chunk.disassemble_instruction(self.pc);
         //self.frame().print_line(message);
 
         self.stack_trace();
+
+        // Reset the stack to default state
+        self.reset_stack();
     }
 
     #[allow(dead_code)]
     fn last_value(&self) -> Option<Value> {
         self.last_printed.clone()
+    }
+}
+
+impl Default for VM {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -439,6 +449,11 @@ mod tests {
         VM::new()
     }
 
+    fn expect_value2(vm: &mut VM, expr: &str, expected: Value) {
+        let res = vm.interpret(expr.to_string());
+        assert_eq!(res, InterpretResult::Ok);
+        assert_eq!(vm.last_value().unwrap(), expected);
+    }
     fn expect_value(expr: &str, expected: Value) {
         let mut vm = new_vm();
         let res = vm.interpret(expr.to_string());
@@ -460,20 +475,23 @@ mod tests {
 
     #[test]
     fn test_arithmetic() {
-        expect_value("print 1+3*4;", Value::Number(13.0));
-        expect_value("print (1+3*3)/5+(4*3);", Value::Number(14.0));
+        let mut vm = new_vm();
+        expect_value2(&mut vm, "print 1+3*4;", Value::Number(13.0));
+        expect_value2(&mut vm, "print (1+3*3)/5+(4*3);", Value::Number(14.0));
     }
 
     #[test]
     fn test_modulo() {
-        expect_value("print 5%2;", Value::Number(1.0));
-        expect_value("print 5%3;", Value::Number(2.0));
+        let mut vm = new_vm();
+        expect_value2(&mut vm, "print 5%2;", Value::Number(1.0));
+        expect_value2(&mut vm, "print 5%3;", Value::Number(2.0));
     }
 
     #[test]
     fn test_addition() {
-        expect_value("print 1+3;", Value::Number(4.0));
-        expect_value("print 4+3;", Value::Number(7.0));
+        let mut vm = new_vm();
+        expect_value2(&mut vm, "print 1+3;", Value::Number(4.0));
+        expect_value2(&mut vm, "print 4+3;", Value::Number(7.0));
     }
     #[test]
     fn test_string_concatenation() {
