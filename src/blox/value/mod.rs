@@ -1,7 +1,8 @@
 pub mod function;
+pub mod native_function;
 pub mod value_array;
 
-use self::function::Function;
+use self::{function::Function, native_function::NativeFunction};
 use core::fmt;
 use std::{rc::Rc, str::FromStr};
 
@@ -12,6 +13,7 @@ pub enum Value {
     Number(f64),
     String(Rc<str>),
     Function(Rc<Function>),
+    NativeFunction(Rc<NativeFunction>),
 }
 
 impl Default for Value {
@@ -61,8 +63,11 @@ impl fmt::Display for Value {
                 if fun.name().is_empty() {
                     write!(f, "<script>")
                 } else {
-                    write!(f, "<fun {}>", fun.name())
+                    write!(f, "<fun '{}'>", fun.name())
                 }
+            }
+            Value::NativeFunction(fun) => {
+                write!(f, "<native fun '{}'>", fun.name())
             }
         }
     }

@@ -3,6 +3,7 @@ use std::collections::BTreeMap;
 use std::rc::Rc;
 
 use super::chunk::Chunk;
+use super::value::native_function::{self, NativeFunction};
 use super::{compiler::Compiler, opcode};
 
 use super::value::{function::Function, Value};
@@ -49,14 +50,16 @@ macro_rules! binary_op {
 }
 impl VM {
     pub fn new() -> Self {
-        Self {
+        let mut vm = Self {
             chunk: Chunk::new(),
-            value_stack: Vec::new(),
+            value_stack: Vec::with_capacity(8192),
             last_printed: None,
             globals: BTreeMap::new(),
-            frame_stack: Vec::new(),
+            frame_stack: Vec::with_capacity(MAX_FRAMES),
             pc: 0,
-        }
+        };
+        vm.define_native("clock", native_function::clock);
+        vm
     }
     pub fn interpret(&mut self, source: String) -> InterpretResult {
         let mut compiler = Compiler::new();
@@ -344,10 +347,16 @@ impl VM {
     // Is it proper to use Result like this? Are there better ways?
     fn call_function(&mut self, function: Value, arg_count: u8) -> bool {
         match &function {
-            Value::Function(f) => {
-                //let mut frame = Frame::new(f.chunk, arg_count as usize);
-                //self.frames.push(frame);
-                self.call(f, arg_count)
+            Value::Function(f) => self.call(f, arg_count),
+            Value::NativeFunction(native) => {
+                // Pop the arguments off the stack
+                let args = self.pop_n(arg_count as usize);
+                // Call the native function
+                let result = native.call(&args);
+
+                self.push(result);
+
+                true
             }
             x => {
                 self.runtime_error(format!("Can only call functions. Got {:?}", x).as_str());
@@ -392,6 +401,14 @@ impl VM {
         self.value_stack.pop().expect("Stack is empty")
     }
 
+    fn pop_n(&mut self, n: usize) -> Vec<Value> {
+        let mut values = Vec::with_capacity(n);
+        for _ in 0..n {
+            values.push(self.pop());
+        }
+        values
+    }
+
     /// Resets the stack to the default state with reserved value
     fn reset_stack(&mut self) {
         //self.value_stack.truncate(0);
@@ -408,6 +425,21 @@ impl VM {
 
         // Reset the stack to default state
         self.reset_stack();
+    }
+
+    fn define_native(&mut self, name: &str, function: fn(&[Value]) -> Value) {
+        let native_function = NativeFunction::new(name, function);
+        let name_ptr = Rc::from(name);
+        self.push(Value::String(name_ptr));
+        self.push(Value::NativeFunction(Rc::from(native_function.clone())));
+
+        self.globals.insert(
+            Rc::from(name),
+            Value::NativeFunction(Rc::from(native_function.clone())),
+        );
+
+        self.pop();
+        self.pop();
     }
 
     #[allow(dead_code)]
