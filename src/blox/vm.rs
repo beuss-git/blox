@@ -18,6 +18,24 @@ struct CallFrame {
     return_addr: usize,     // The address to return to after executing this callframe
 }
 
+pub struct Settings {
+    pub trace_execution: bool,
+    pub trace_stack: bool,
+    pub disassembly: bool,
+    pub frame_info: bool,
+}
+
+impl Settings {
+    pub fn new() -> Self {
+        Self {
+            trace_execution: false,
+            trace_stack: false,
+            disassembly: false,
+            frame_info: false,
+        }
+    }
+}
+
 impl CallFrame {
     fn new(function: Rc<Function>, slot_offset: usize, return_addr: usize) -> Self {
         Self {
