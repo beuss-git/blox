@@ -9,7 +9,7 @@ use super::value::{
     Value,
 };
 
-const DEBUG_TRACE_EXECUTION: bool = false;
+const DEBUG_TRACE_EXECUTION: bool = true;
 const DEBUG_DISASSEMBLY: bool = false;
 const MAX_FRAMES: usize = 255;
 
@@ -108,7 +108,9 @@ impl VM {
         self.value_stack[absolute_slot] = value.clone();
     }
     fn run(&mut self) -> InterpretResult {
-        //self.pc = self.compiler.start_address;
+        // Set none (for testing purposes), we didn't print anything for the context
+        self.last_printed = None;
+
         loop {
             if DEBUG_TRACE_EXECUTION {
                 self.print_value_stack();
@@ -403,7 +405,9 @@ impl VM {
 
     /// Resets the stack to the default state with reserved value
     fn reset_stack(&mut self) {
-        self.value_stack.truncate(1);
+        //self.value_stack.truncate(0);
+        self.value_stack.clear();
+        self.frame_stack.clear();
     }
 
     fn runtime_error(&mut self, message: &str) {
@@ -449,26 +453,18 @@ mod tests {
         VM::new()
     }
 
-    fn expect_value2(vm: &mut VM, expr: &str, expected: Value) {
-        let res = vm.interpret(expr.to_string());
-        assert_eq!(res, InterpretResult::Ok);
-        assert_eq!(vm.last_value().unwrap(), expected);
-    }
-    fn expect_value(expr: &str, expected: Value) {
-        let mut vm = new_vm();
+    fn expect_value(vm: &mut VM, expr: &str, expected: Value) {
         let res = vm.interpret(expr.to_string());
         assert_eq!(res, InterpretResult::Ok);
         assert_eq!(vm.last_value().unwrap(), expected);
     }
 
-    fn expect_none(expr: &str) {
-        let mut vm = new_vm();
+    fn expect_none(vm: &mut VM, expr: &str) {
         let res = vm.interpret(expr.to_string());
         assert!(vm.last_value().is_none());
     }
 
-    fn expect_compile_result(expr: &str, expected: InterpretResult) {
-        let mut vm = new_vm();
+    fn expect_interpreter_result(vm: &mut VM, expr: &str, expected: InterpretResult) {
         let res = vm.interpret(expr.to_string());
         assert_eq!(res, expected);
     }
@@ -476,96 +472,129 @@ mod tests {
     #[test]
     fn test_arithmetic() {
         let mut vm = new_vm();
-        expect_value2(&mut vm, "print 1+3*4;", Value::Number(13.0));
-        expect_value2(&mut vm, "print (1+3*3)/5+(4*3);", Value::Number(14.0));
+        expect_value(&mut vm, "print 1+3*4;", Value::Number(13.0));
+        expect_value(&mut vm, "print (1+3*3)/5+(4*3);", Value::Number(14.0));
     }
 
     #[test]
     fn test_modulo() {
         let mut vm = new_vm();
-        expect_value2(&mut vm, "print 5%2;", Value::Number(1.0));
-        expect_value2(&mut vm, "print 5%3;", Value::Number(2.0));
+        expect_value(&mut vm, "print 5%2;", Value::Number(1.0));
+        expect_value(&mut vm, "print 5%3;", Value::Number(2.0));
     }
 
     #[test]
     fn test_addition() {
         let mut vm = new_vm();
-        expect_value2(&mut vm, "print 1+3;", Value::Number(4.0));
-        expect_value2(&mut vm, "print 4+3;", Value::Number(7.0));
+        expect_value(&mut vm, "print 1+3;", Value::Number(4.0));
+        expect_value(&mut vm, "print 4+3;", Value::Number(7.0));
     }
     #[test]
     fn test_string_concatenation() {
+        let mut vm = new_vm();
         expect_value(
+            &mut vm,
             r#"print "Hello" + " " + "World!";"#,
             Value::String(Rc::from("Hello World!")),
         );
         expect_value(
+            &mut vm,
             r#"print "Hel" + "lo" + ", " + "Wo" + "rld!";"#,
             Value::String(Rc::from("Hello, World!")),
         );
-        expect_value(r#"print "one" + "two";"#, Value::String(Rc::from("onetwo")));
-        expect_value(r#"print "one" + 2;"#, Value::String(Rc::from("one2")));
-        expect_value(r#"print "one" + 2.1;"#, Value::String(Rc::from("one2.1")));
-        expect_value(r#"print "one" + true;"#, Value::String(Rc::from("onetrue")));
         expect_value(
+            &mut vm,
+            r#"print "one" + "two";"#,
+            Value::String(Rc::from("onetwo")),
+        );
+        expect_value(
+            &mut vm,
+            r#"print "one" + 2;"#,
+            Value::String(Rc::from("one2")),
+        );
+        expect_value(
+            &mut vm,
+            r#"print "one" + 2.1;"#,
+            Value::String(Rc::from("one2.1")),
+        );
+        expect_value(
+            &mut vm,
+            r#"print "one" + true;"#,
+            Value::String(Rc::from("onetrue")),
+        );
+        expect_value(
+            &mut vm,
             r#"print "one" + false;"#,
             Value::String(Rc::from("onefalse")),
         );
-        expect_value(r#"print "one" + nil;"#, Value::String(Rc::from("onenil")));
+        expect_value(
+            &mut vm,
+            r#"print "one" + nil;"#,
+            Value::String(Rc::from("onenil")),
+        );
     }
     #[test]
     fn test_subtraction() {
-        expect_value("print 1-3;", Value::Number(-2.0));
-        expect_value("print 6-2;", Value::Number(4.0));
+        let mut vm = new_vm();
+        expect_value(&mut vm, "print 1-3;", Value::Number(-2.0));
+        expect_value(&mut vm, "print 6-2;", Value::Number(4.0));
     }
 
     #[test]
     fn test_multiplication() {
-        expect_value("print 2*10;", Value::Number(20.0));
-        expect_value("print 3*2*1;", Value::Number(6.0));
-        expect_value("print 1*2*3;", Value::Number(6.0));
+        let mut vm = new_vm();
+        expect_value(&mut vm, "print 2*10;", Value::Number(20.0));
+        expect_value(&mut vm, "print 3*2*1;", Value::Number(6.0));
+        expect_value(&mut vm, "print 1*2*3;", Value::Number(6.0));
     }
 
     #[test]
     fn test_division() {
-        expect_value("print 2/2;", Value::Number(1.0));
-        expect_value("print 4/2;", Value::Number(2.0));
-        expect_value("print 2/4;", Value::Number(0.5));
-        expect_value("print 3/2/1;", Value::Number(1.5));
+        let mut vm = new_vm();
+        expect_value(&mut vm, "print 2/2;", Value::Number(1.0));
+        expect_value(&mut vm, "print 4/2;", Value::Number(2.0));
+        expect_value(&mut vm, "print 2/4;", Value::Number(0.5));
+        expect_value(&mut vm, "print 3/2/1;", Value::Number(1.5));
     }
 
     #[test]
     fn test_not() {
-        expect_value("print !true;", Value::Boolean(false));
-        expect_value("print !false;", Value::Boolean(true));
+        let mut vm = new_vm();
+        expect_value(&mut vm, "print !true;", Value::Boolean(false));
+        expect_value(&mut vm, "print !false;", Value::Boolean(true));
     }
 
     #[test]
     fn test_negation() {
-        expect_value("print -1;", Value::Number(-1.0));
-        expect_value("print -2;", Value::Number(-2.0));
-        expect_value("print -3;", Value::Number(-3.0));
-        expect_value("print --3;", Value::Number(3.0));
-        expect_value("print ---3;", Value::Number(-3.0));
+        let mut vm = new_vm();
+        expect_value(&mut vm, "print -1;", Value::Number(-1.0));
+        expect_value(&mut vm, "print -2;", Value::Number(-2.0));
+        expect_value(&mut vm, "print -3;", Value::Number(-3.0));
+        expect_value(&mut vm, "print --3;", Value::Number(3.0));
+        expect_value(&mut vm, "print ---3;", Value::Number(-3.0));
     }
 
     #[test]
     fn test_nil() {
-        expect_value("print nil;", Value::Nil);
+        let mut vm = new_vm();
+        expect_value(&mut vm, "print nil;", Value::Nil);
     }
 
     #[test]
     fn test_boolean() {
-        expect_value("print true;", Value::Boolean(true));
-        expect_value("print false;", Value::Boolean(false));
+        let mut vm = new_vm();
+        expect_value(&mut vm, "print true;", Value::Boolean(true));
+        expect_value(&mut vm, "print false;", Value::Boolean(false));
     }
 
     #[test]
     fn test_comments() {
-        expect_value("print 1+3*4; // comment", Value::Number(13.0));
-        expect_none("// 1+3*4");
-        expect_value("print 1; //+3*4", Value::Number(1.0));
+        let mut vm = new_vm();
+        expect_value(&mut vm, "print 1+3*4; // comment", Value::Number(13.0));
+        expect_none(&mut vm, "// 1+3*4");
+        expect_value(&mut vm, "print 1; //+3*4", Value::Number(1.0));
         expect_value(
+            &mut vm,
             r#"
             var b = 2;
             //b = 14;
@@ -577,74 +606,87 @@ mod tests {
 
     #[test]
     fn test_comparison() {
-        expect_value("print !(5 - 4 > 3 * 2 == !nil);", Value::Boolean(true));
+        let mut vm = new_vm();
+        expect_value(
+            &mut vm,
+            "print !(5 - 4 > 3 * 2 == !nil);",
+            Value::Boolean(true),
+        );
     }
 
     #[test]
     fn test_not_equal() {
-        expect_value("print 5 != 4;", Value::Boolean(true));
-        expect_value("print 5 != 5;", Value::Boolean(false));
-        expect_value("print true != true;", Value::Boolean(false));
-        expect_value("print false != false;", Value::Boolean(false));
-        expect_value("print true != false;", Value::Boolean(true));
-        expect_value("print false != true;", Value::Boolean(true));
-        expect_value(r#"print "str" != "str";"#, Value::Boolean(false));
-        expect_value(r#"print "str" != "st2";"#, Value::Boolean(true));
-        expect_value(r#"print "str" != "st";"#, Value::Boolean(true));
+        let mut vm = new_vm();
+        expect_value(&mut vm, "print 5 != 4;", Value::Boolean(true));
+        expect_value(&mut vm, "print 5 != 5;", Value::Boolean(false));
+        expect_value(&mut vm, "print true != true;", Value::Boolean(false));
+        expect_value(&mut vm, "print false != false;", Value::Boolean(false));
+        expect_value(&mut vm, "print true != false;", Value::Boolean(true));
+        expect_value(&mut vm, "print false != true;", Value::Boolean(true));
+        expect_value(&mut vm, r#"print "str" != "str";"#, Value::Boolean(false));
+        expect_value(&mut vm, r#"print "str" != "st2";"#, Value::Boolean(true));
+        expect_value(&mut vm, r#"print "str" != "st";"#, Value::Boolean(true));
     }
 
     #[test]
     fn test_equal() {
-        expect_value("print 1 == 1;", Value::Boolean(true));
-        expect_value("print 1 == 2;", Value::Boolean(false));
-        expect_value("print 1 == 1.0;", Value::Boolean(true));
-        expect_value("print 1.0 == 1;", Value::Boolean(true));
-        expect_value("print 1.0 == 1.0;", Value::Boolean(true));
-        expect_value("print 1.0 == 2.0;", Value::Boolean(false));
-        expect_value("print 1.0 == 1.0;", Value::Boolean(true));
-        expect_value("print 1.0 == 2.0;", Value::Boolean(false));
-        expect_value("print 1.0 == 1.0;", Value::Boolean(true));
-        expect_value("print 1.0 == 2.0;", Value::Boolean(false));
-        expect_value("print true == true;", Value::Boolean(true));
-        expect_value("print false == false;", Value::Boolean(true));
-        expect_value("print true == false;", Value::Boolean(false));
-        expect_value("print false == true;", Value::Boolean(false));
-        expect_value(r#"print "str" == "str";"#, Value::Boolean(true));
-        expect_value(r#"print "str" == "st2";"#, Value::Boolean(false));
-        expect_value(r#"print "str" == "st";"#, Value::Boolean(false));
+        let mut vm = new_vm();
+        expect_value(&mut vm, "print 1 == 1;", Value::Boolean(true));
+        expect_value(&mut vm, "print 1 == 2;", Value::Boolean(false));
+        expect_value(&mut vm, "print 1 == 1.0;", Value::Boolean(true));
+        expect_value(&mut vm, "print 1.0 == 1;", Value::Boolean(true));
+        expect_value(&mut vm, "print 1.0 == 1.0;", Value::Boolean(true));
+        expect_value(&mut vm, "print 1.0 == 2.0;", Value::Boolean(false));
+        expect_value(&mut vm, "print 1.0 == 1.0;", Value::Boolean(true));
+        expect_value(&mut vm, "print 1.0 == 2.0;", Value::Boolean(false));
+        expect_value(&mut vm, "print 1.0 == 1.0;", Value::Boolean(true));
+        expect_value(&mut vm, "print 1.0 == 2.0;", Value::Boolean(false));
+        expect_value(&mut vm, "print true == true;", Value::Boolean(true));
+        expect_value(&mut vm, "print false == false;", Value::Boolean(true));
+        expect_value(&mut vm, "print true == false;", Value::Boolean(false));
+        expect_value(&mut vm, "print false == true;", Value::Boolean(false));
+        expect_value(&mut vm, r#"print "str" == "str";"#, Value::Boolean(true));
+        expect_value(&mut vm, r#"print "str" == "st2";"#, Value::Boolean(false));
+        expect_value(&mut vm, r#"print "str" == "st";"#, Value::Boolean(false));
     }
 
     #[test]
     fn test_greater() {
-        expect_value("print 5 > 4;", Value::Boolean(true));
-        expect_value("print 5 > 5;", Value::Boolean(false));
-        expect_value("print 5 > 6;", Value::Boolean(false));
+        let mut vm = new_vm();
+        expect_value(&mut vm, "print 5 > 4;", Value::Boolean(true));
+        expect_value(&mut vm, "print 5 > 5;", Value::Boolean(false));
+        expect_value(&mut vm, "print 5 > 6;", Value::Boolean(false));
     }
 
     #[test]
     fn test_greater_equal() {
-        expect_value("print 5 >= 4;", Value::Boolean(true));
-        expect_value("print 5 >= 5;", Value::Boolean(true));
-        expect_value("print 5 >= 6;", Value::Boolean(false));
+        let mut vm = new_vm();
+        expect_value(&mut vm, "print 5 >= 4;", Value::Boolean(true));
+        expect_value(&mut vm, "print 5 >= 5;", Value::Boolean(true));
+        expect_value(&mut vm, "print 5 >= 6;", Value::Boolean(false));
     }
 
     #[test]
     fn test_less() {
-        expect_value("print 5 < 4;", Value::Boolean(false));
-        expect_value("print 5 < 5;", Value::Boolean(false));
-        expect_value("print 5 < 6;", Value::Boolean(true));
+        let mut vm = new_vm();
+        expect_value(&mut vm, "print 5 < 4;", Value::Boolean(false));
+        expect_value(&mut vm, "print 5 < 5;", Value::Boolean(false));
+        expect_value(&mut vm, "print 5 < 6;", Value::Boolean(true));
     }
 
     #[test]
     fn test_less_equal() {
-        expect_value("print 5 <= 4;", Value::Boolean(false));
-        expect_value("print 5 <= 5;", Value::Boolean(true));
-        expect_value("print 5 <= 6;", Value::Boolean(true));
+        let mut vm = new_vm();
+        expect_value(&mut vm, "print 5 <= 4;", Value::Boolean(false));
+        expect_value(&mut vm, "print 5 <= 5;", Value::Boolean(true));
+        expect_value(&mut vm, "print 5 <= 6;", Value::Boolean(true));
     }
 
     #[test]
     fn test_global_variable_declaration() {
+        let mut vm = new_vm();
         expect_value(
+            &mut vm,
             r#"
         var a = 1;
         var b = a + 3;
@@ -654,6 +696,7 @@ mod tests {
         );
 
         expect_value(
+            &mut vm,
             r#"
         var a = 1;
         var b = 3 + 1;
@@ -663,6 +706,7 @@ mod tests {
         );
 
         expect_value(
+            &mut vm,
             r#"
         var a = 1;
         var b = 3 + 1;
@@ -674,7 +718,9 @@ mod tests {
 
     #[test]
     fn test_global_variable_assignment() {
+        let mut vm = new_vm();
         expect_value(
+            &mut vm,
             r#"
         var a = 1;
         a = 2;
@@ -684,6 +730,7 @@ mod tests {
         );
 
         expect_value(
+            &mut vm,
             r#"
         var a = 1;
         a = a + 2;
@@ -693,7 +740,8 @@ mod tests {
         );
 
         // Assign to invalid assignment target
-        expect_compile_result(
+        expect_interpreter_result(
+            &mut vm,
             r#"
                 a + b = c;
             "#,
@@ -701,7 +749,8 @@ mod tests {
         );
 
         // Assign to invalid assignment target
-        expect_compile_result(
+        expect_interpreter_result(
+            &mut vm,
             r#"
                     var c = 3;
                     a + b = c;
@@ -710,7 +759,8 @@ mod tests {
         );
 
         // Assign to invalid assignment target
-        expect_compile_result(
+        expect_interpreter_result(
+            &mut vm,
             r#"
                     var c = 3;
                     var a = 1;
@@ -723,7 +773,9 @@ mod tests {
 
     #[test]
     fn test_default_nil() {
+        let mut vm = new_vm();
         expect_value(
+            &mut vm,
             r#"
         var a;
         print a;
@@ -734,7 +786,9 @@ mod tests {
 
     #[test]
     fn test_nil_value() {
+        let mut vm = new_vm();
         expect_value(
+            &mut vm,
             r#"
         var a = nil;
         print a;
@@ -745,7 +799,9 @@ mod tests {
 
     #[test]
     fn test_number_value() {
+        let mut vm = new_vm();
         expect_value(
+            &mut vm,
             r#"
         var a = 5.0;
         print a;
@@ -755,7 +811,9 @@ mod tests {
     }
     #[test]
     fn test_string_value() {
+        let mut vm = new_vm();
         expect_value(
+            &mut vm,
             r#"
         var a = "hello";
         print a;
@@ -766,7 +824,9 @@ mod tests {
 
     #[test]
     fn test_bool_value() {
+        let mut vm = new_vm();
         expect_value(
+            &mut vm,
             r#"
         var a = true;
         print a;
@@ -777,8 +837,11 @@ mod tests {
 
     #[test]
     fn test_value_assignment() {
+        let mut vm = new_vm();
+
         // Number
         expect_value(
+            &mut vm,
             r#"
         var a;
         a = 1.0;
@@ -789,6 +852,7 @@ mod tests {
 
         // Bool
         expect_value(
+            &mut vm,
             r#"
         var a;
         a = false;
@@ -799,6 +863,7 @@ mod tests {
 
         // String
         expect_value(
+            &mut vm,
             r#"
         var a;
         a = "hello";
@@ -809,6 +874,7 @@ mod tests {
 
         // Nil
         expect_value(
+            &mut vm,
             r#"
         var a;
         a = nil;
@@ -821,7 +887,9 @@ mod tests {
 
     #[test]
     fn test_scope() {
+        let mut vm = new_vm();
         expect_value(
+            &mut vm,
             r#"
             {
                 var a = "outer";
@@ -836,6 +904,7 @@ mod tests {
         );
 
         expect_value(
+            &mut vm,
             r#"
             {
                 var a = "outer";
@@ -850,6 +919,7 @@ mod tests {
         );
 
         expect_value(
+            &mut vm,
             r#"
             {
                 var a = "outer";
@@ -863,6 +933,7 @@ mod tests {
         );
 
         expect_value(
+            &mut vm,
             r#"
             {
                 var a = "outer";
@@ -879,8 +950,10 @@ mod tests {
     }
     #[test]
     fn test_undefined_variable() {
+        let mut vm = new_vm();
         // Test undefined in local sope
-        expect_compile_result(
+        expect_interpreter_result(
+            &mut vm,
             r#"
             {
                 print a;
@@ -891,7 +964,8 @@ mod tests {
         );
 
         // Test gone out of scope
-        expect_compile_result(
+        expect_interpreter_result(
+            &mut vm,
             r#"
             {
                 var a = 3;
@@ -903,7 +977,8 @@ mod tests {
         );
 
         // Test gone out of scope
-        expect_compile_result(
+        expect_interpreter_result(
+            &mut vm,
             r#"
             {
                 {
@@ -917,7 +992,8 @@ mod tests {
         );
 
         // Test gone out of scope
-        expect_compile_result(
+        expect_interpreter_result(
+            &mut vm,
             r#"
             {
                 {
@@ -931,7 +1007,8 @@ mod tests {
         );
 
         // Test undefined in global scope
-        expect_compile_result(
+        expect_interpreter_result(
+            &mut vm,
             r#"
             print a;
             "#,
@@ -940,7 +1017,9 @@ mod tests {
     }
     #[test]
     fn test_if() {
+        let mut vm = new_vm();
         expect_value(
+            &mut vm,
             r#"
         if (true) {
             print "hello";
@@ -950,6 +1029,7 @@ mod tests {
         );
 
         expect_none(
+            &mut vm,
             r#"
         if (false) {
             print "hello";
@@ -958,6 +1038,7 @@ mod tests {
         );
 
         expect_value(
+            &mut vm,
             r#"
         if (true) {
             print "hello";
@@ -969,6 +1050,7 @@ mod tests {
         );
 
         expect_value(
+            &mut vm,
             r#"
         if (false) {
             print "hello";
@@ -997,20 +1079,23 @@ mod tests {
     }
     #[test]
     fn test_logical_operators() {
-        expect_value("print true and true;", Value::Boolean(true));
-        expect_value("print false and true;", Value::Boolean(false));
-        expect_value("print true and false;", Value::Boolean(false));
-        expect_value("print false and false;", Value::Boolean(false));
+        let mut vm = new_vm();
+        expect_value(&mut vm, "print true and true;", Value::Boolean(true));
+        expect_value(&mut vm, "print false and true;", Value::Boolean(false));
+        expect_value(&mut vm, "print true and false;", Value::Boolean(false));
+        expect_value(&mut vm, "print false and false;", Value::Boolean(false));
 
-        expect_value("print true or true;", Value::Boolean(true));
-        expect_value("print false or true;", Value::Boolean(true));
-        expect_value("print true or false;", Value::Boolean(true));
-        expect_value("print false or false;", Value::Boolean(false));
+        expect_value(&mut vm, "print true or true;", Value::Boolean(true));
+        expect_value(&mut vm, "print false or true;", Value::Boolean(true));
+        expect_value(&mut vm, "print true or false;", Value::Boolean(true));
+        expect_value(&mut vm, "print false or false;", Value::Boolean(false));
     }
 
     #[test]
     fn test_while_loop() {
+        let mut vm = new_vm();
         expect_value(
+            &mut vm,
             r#"
         var a = 0;
         while (a < 5) {
@@ -1024,7 +1109,9 @@ mod tests {
 
     #[test]
     fn test_for_loop() {
+        let mut vm = new_vm();
         expect_value(
+            &mut vm,
             r#"
         var a = 0;
         for (;a < 5;) {
@@ -1036,6 +1123,7 @@ mod tests {
         );
 
         expect_value(
+            &mut vm,
             r#"
         var a = 0;
         for (;a < 5; a = a + 1) { }
@@ -1045,6 +1133,7 @@ mod tests {
         );
 
         expect_value(
+            &mut vm,
             r#"
         var a;
         for (a = 0;a < 5; a = a + 1) { }
@@ -1054,6 +1143,7 @@ mod tests {
         );
 
         expect_value(
+            &mut vm,
             r#"
         var a;
         var b = 0;
@@ -1066,6 +1156,7 @@ mod tests {
         );
 
         expect_value(
+            &mut vm,
             r#"
         var b = 0;
         for (var a = 3;a < 5; a = a + 1) {
@@ -1077,6 +1168,7 @@ mod tests {
         );
 
         expect_value(
+            &mut vm,
             r#"
             var b = 0;
         var a = 3;
@@ -1091,7 +1183,9 @@ mod tests {
 
     #[test]
     fn test_function() {
+        let mut vm = new_vm();
         expect_value(
+            &mut vm,
             r#"
             fun test() {
                 return 5;
@@ -1101,7 +1195,8 @@ mod tests {
             Value::Number(5.0),
         );
 
-        expect_compile_result(
+        expect_interpreter_result(
+            &mut vm,
             r#"
             fun printer(x) {
                 return "hello";
@@ -1112,26 +1207,29 @@ mod tests {
         );
 
         expect_value(
+            &mut vm,
             r#"
-            fun printer(x) {
+            fun printer2(x) {
                 return "hello";
             }
-            print printer(2);
+            print printer2(2);
         "#,
             Value::String(Rc::from("hello")),
         );
 
         expect_value(
+            &mut vm,
             r#"
-            fun printer(x) {
+            fun printer3(x) {
                 return x;
             }
-            print printer(2);
+            print printer3(2);
         "#,
             Value::Number(2.0),
         );
 
         expect_value(
+            &mut vm,
             r#"
             fun fib(n) {
                 if (n < 2) return n;
@@ -1144,8 +1242,9 @@ mod tests {
         );
 
         expect_value(
+            &mut vm,
             r#"
-fun fib(n) {
+fun fib_non_recursive(n) {
 
     var a = 0;
     var b = 1;
@@ -1159,7 +1258,7 @@ fun fib(n) {
 }
 var n = 10;
 
-print fib(n);
+print fib_non_recursive(n);
 
 
         "#,
@@ -1168,6 +1267,7 @@ print fib(n);
 
         // See if locals work properly in function in nested scope, they should reset and just use the function slot as local offset
         expect_value(
+            &mut vm,
             r#"
         {
             fun returner(x) {
@@ -1183,6 +1283,7 @@ print fib(n);
         );
 
         expect_value(
+            &mut vm,
             r#"
         {
             var a = 3;
@@ -1199,6 +1300,7 @@ print fib(n);
         );
 
         expect_value(
+            &mut vm,
             r#"
             var a = 3;
 
