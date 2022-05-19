@@ -1313,4 +1313,85 @@ print fib_non_recursive(n);
             Value::Number(3.0),
         );
     }
+
+    #[test]
+    fn test_function_multiple_params() {
+        let mut vm = new_vm();
+        expect_value(
+            &mut vm,
+            r#"
+            fun test(x, y) {
+                return x + y;
+            }
+            print test(2, 3);
+        "#,
+            Value::Number(5.0),
+        );
+
+        expect_interpreter_result(
+            &mut vm,
+            r#"
+            fun test(x, y) {
+                return x + y;
+            }
+            print test(2, 3, 4);
+        "#,
+            InterpretResult::RuntimeError,
+        );
+
+        expect_interpreter_result(
+            &mut vm,
+            r#"
+            fun test(x) {
+                return x + y;
+            }
+            print test(2, 3, 4);
+        "#,
+            InterpretResult::RuntimeError,
+        );
+
+        expect_interpreter_result(
+            &mut vm,
+            r#"
+            fun test(x) {
+                return x;
+            }
+            print test(2, 3, 4);
+        "#,
+            InterpretResult::RuntimeError,
+        );
+
+        expect_interpreter_result(
+            &mut vm,
+            r#"
+            fun test(x, y) {
+                return x;
+            }
+            print test();
+        "#,
+            InterpretResult::RuntimeError,
+        );
+
+        expect_interpreter_result(
+            &mut vm,
+            r#"
+            fun test(x, y) {
+                return x;
+            }
+            print test(1);
+        "#,
+            InterpretResult::RuntimeError,
+        );
+
+        expect_value(
+            &mut vm,
+            r#"
+            fun test(x, y, z) {
+                return x + y + z;
+            }
+            print test(2, 3, 4);
+        "#,
+            Value::Number(9.0),
+        );
+    }
 }
