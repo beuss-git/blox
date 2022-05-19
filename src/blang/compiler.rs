@@ -87,18 +87,20 @@ impl Compiler {
 
     // TODO: move to parser?
     fn error(&mut self, message: &str) {
-        self.error_at(self.parser.previous.line, message);
+        self.error_at(self.parser.previous, self.parser.previous.line, message);
     }
 
     fn error_at_current(&mut self, message: &str) {
-        self.error_at(self.parser.current.line, message);
+        self.error_at(self.parser.current, self.parser.current.line, message);
     }
 
-    fn error_at(&mut self, line: usize, message: &str) {
+    fn error_at(&mut self, token: Token, line: usize, message: &str) {
         if self.parser.panic_mode {
             return;
         }
-        println!("[line {}] Error: {}", line, message);
+        self.parser.panic_mode = true;
+        let lexeme = self.lexer.get_lexeme(&token);
+        println!("[line {}] Error: at '{}' {}", line, lexeme, message);
         self.parser.had_error = true;
     }
     fn advance(&mut self) {
@@ -114,7 +116,7 @@ impl Compiler {
                     break;
                 }
                 Err(err) => {
-                    self.error_at(err.line, err.message);
+                    self.error_at(self.parser.current, err.line, err.message);
                 }
             }
         }
@@ -327,7 +329,6 @@ impl Compiler {
         let old_locals = self.locals.clone();
         self.locals = Locals::new();
         self.locals.declare(String::from("")); // Reserve slot 0 for the vm
-                                               //self.chunks.push(Chunk::new());
 
         let function_name = self.lexer.get_lexeme(&self.parser.previous).to_string();
         self.function.set_name(function_name.clone());
