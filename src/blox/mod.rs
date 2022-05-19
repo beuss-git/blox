@@ -1,9 +1,8 @@
 mod blang_test;
 mod chunk;
-pub mod main;
 mod opcode;
 mod value;
-mod vm;
+pub mod vm;
 
 mod compiler;
 mod lexer;

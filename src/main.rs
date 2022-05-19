@@ -1,9 +1,12 @@
+use std::{fs, io::Write};
+
 mod blox;
 
 fn main() {
-    blox::main::main();
+    //let source = fs::read_to_string("sources/test.bl").unwrap();
+    let mut vm = blox::vm::VM::new();
+    //vm.interpret(source);
     // REPL
-    /*
     let mut input = String::new();
     loop {
         print!("> ");
@@ -16,8 +19,8 @@ fn main() {
         if input.trim() == "exit" {
             break;
         }
+        vm.interpret(input.clone());
 
         input.clear();
     }
-    */
 }
