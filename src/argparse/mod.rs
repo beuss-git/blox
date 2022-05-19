@@ -36,14 +36,14 @@ impl ArgParse {
             if arg.found {
                 if arg.value.is_some() {
                     return arg.value.clone();
-                } else if arg.default.is_some() {
-                    // Return the default if it has a value
-                    return arg.default.clone();
                 } else {
                     // Return *something* indicating that it was found
                     // This is a bit hacky, but it works for my little project :^)
                     return Some(String::from(""));
                 }
+            } else if arg.default.is_some() {
+                // Return the default if it has a value
+                return arg.default.clone();
             }
         }
         None
@@ -140,5 +140,30 @@ impl ArgParse {
         }
 
         self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_argparser() {
+        use super::*;
+
+        let mut parser = ArgParse::new();
+        parser.arg("--help").help("Print this help message");
+        parser.arg("--default").default(String::from("default"));
+        parser.arg("--value");
+
+        let args = vec![
+            String::from("--help"),
+            String::from("--value"),
+            String::from("value"),
+        ];
+        parser.internal_parse(args);
+
+        assert_eq!(parser.get("--help"), Some("".to_string()));
+        assert_eq!(parser.get("--value"), Some("value".to_string()));
+        assert_eq!(parser.get("--default"), Some("default".to_string()));
+        assert_eq!(parser.get("blah"), None);
     }
 }
