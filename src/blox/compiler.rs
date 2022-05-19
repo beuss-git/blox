@@ -1,5 +1,3 @@
-use std::borrow::{Borrow, BorrowMut};
-use std::cell::{Ref, RefCell, RefMut};
 use std::rc::Rc;
 
 use super::lexer::Token;
@@ -45,7 +43,7 @@ impl Compiler {
     }
 
     fn compile_functions(&mut self, chunk: &mut Chunk) {
-        while self.function_starts.len() > 0 {
+        while !self.function_starts.is_empty() {
             let function_start = self.function_starts.pop().unwrap();
             let start_address = chunk.code.len();
 
@@ -55,15 +53,12 @@ impl Compiler {
             let function = chunk.get_constant(function_constant_index as usize);
 
             let mut new_function = Function::new();
-            match function {
-                Value::Function(f) => {
-                    // A poor man's Rc clone :)
-                    new_function.set_arity(f.arity());
-                    new_function.set_chunk_index(f.chunk_index());
-                    new_function.set_name(f.name().to_string());
-                    new_function.set_start_address(start_address);
-                }
-                _ => (),
+            if let Value::Function(f) = function {
+                // A poor man's Rc clone :)
+                new_function.set_arity(f.arity());
+                new_function.set_chunk_index(f.chunk_index());
+                new_function.set_name(f.name().to_string());
+                new_function.set_start_address(start_address);
             }
 
             chunk.patch_constant(
@@ -218,8 +213,7 @@ impl Compiler {
         if !self.commit {
             return 0;
         }
-        let line_num = self.parser.previous.line;
-        let constant_index = chunk.add_constant(value, line_num);
+        let constant_index = chunk.add_constant(value);
 
         if constant_index > u8::MAX as usize {
             self.error("Too many constants in one chunk.");
@@ -235,6 +229,7 @@ impl Compiler {
         constant_index
     }
 
+    #[allow(dead_code)]
     fn patch_constant(&mut self, chunk: &mut Chunk, constant_index: u8, value: Value) {
         if !self.commit {
             return;
@@ -265,7 +260,7 @@ impl Compiler {
             let chunk_name = if self.current_function.name().is_empty() {
                 "<script>"
             } else {
-                &self.current_function.name()
+                self.current_function.name()
             };
             chunk.disassemble_chunk_from(chunk_name, 0);
             self.current_function.set_start_address(start_address);
@@ -278,9 +273,6 @@ impl Compiler {
         self.locals.begin_scope();
     }
 
-    fn end_scope_func(&mut self) {
-        self.locals.end_scope();
-    }
     fn end_scope(&mut self, chunk: &mut Chunk) {
         for _ in 0..self.locals.end_scope() {
             self.emit_byte(chunk, opcode::OP_POP);
@@ -372,7 +364,7 @@ impl Compiler {
                                                //self.chunk = Chunk::new();
 
         let function_name = self.lexer.get_lexeme(&self.parser.previous).to_string();
-        self.current_function.set_name(function_name.clone());
+        self.current_function.set_name(function_name);
         //self.current_function.set_start_address(start_addr);
         //self.function.set_chunk_index(self.chunks.len() - 1);
 
@@ -725,7 +717,6 @@ impl Compiler {
             TokenKind::Identifier => self.variable(chunk, can_assign),
             _ => {
                 self.error("Expect prefix expression.");
-                return;
             }
         }
     }
@@ -748,7 +739,6 @@ impl Compiler {
             TokenKind::LeftParen => self.call(chunk),
             _ => {
                 self.error("Expect infix expression.");
-                return;
             }
         }
     }
@@ -785,7 +775,7 @@ impl Compiler {
             self.error("Too many local variables in function.");
             return;
         }
-        self.locals.declare(name.to_string());
+        self.locals.declare(name);
     }
     fn declare_variable(&mut self) {
         // Global
@@ -902,7 +892,6 @@ enum Precedence {
     Factor,     // * /
     Unary,      // ! -
     Call,       // . ()
-    Primary,
 }
 
 impl<'a> From<TokenKind> for Precedence {

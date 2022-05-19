@@ -1,15 +1,12 @@
-use std::cell::{Cell, RefCell};
+use std::collections::hash_map::Entry;
 use std::{collections::HashMap, rc::Rc};
 
 use super::chunk::Chunk;
 use super::{compiler::Compiler, opcode};
 
-use super::value::{
-    function::{Function, FunctionType},
-    Value,
-};
+use super::value::{function::Function, Value};
 
-const DEBUG_TRACE_EXECUTION: bool = true;
+const DEBUG_TRACE_EXECUTION: bool = false;
 const DEBUG_DISASSEMBLY: bool = false;
 const MAX_FRAMES: usize = 255;
 
@@ -78,14 +75,10 @@ impl VM {
 
                 self.run()
             }
-            None => {
-                return InterpretResult::CompileError;
-            }
+            None => InterpretResult::CompileError,
         }
     }
-    /*fn chunk() -> &'static Chunk {
-        self.chunk
-    }*/
+
     fn frame(&self) -> &CallFrame {
         //let frame_count = self.frame_count;
         let frame_count = self.frame_stack.len();
@@ -93,12 +86,6 @@ impl VM {
         &self.frame_stack[frame_count - 1]
     }
 
-    fn frame_mut(&mut self) -> &mut CallFrame {
-        //let frame_count = self.frame_count;
-        let frame_count = self.frame_stack.len();
-
-        &mut self.frame_stack[frame_count - 1]
-    }
     fn get_value(&mut self, slot: usize) -> &Value {
         let absolute_slot = self.frame().slot_offset + slot;
         &self.value_stack[absolute_slot]
@@ -284,12 +271,12 @@ impl VM {
                     match name {
                         Value::String(str) => {
                             let value = self.peek().clone();
-                            if self.globals.contains_key(&str) {
-                                self.globals.insert(str, value);
+                            if let Entry::Occupied(mut entry) = self.globals.entry(str) {
+                                entry.insert(value);
                             } else {
-                                self.runtime_error(&format!("Undefined variable '{}'.", str));
+                                self.runtime_error("Undefined variable.");
                                 return InterpretResult::RuntimeError;
-                            }
+                            };
                         }
                         _ => {
                             self.runtime_error("Expected a string.");
@@ -297,9 +284,10 @@ impl VM {
                         }
                     }
                 }
-                opcode::OP_EQUAL => match (self.pop(), self.pop()) {
-                    (a, b) => self.push(Value::Boolean(Value::is_same(a, b))),
-                },
+                opcode::OP_EQUAL => {
+                    let (a, b) = (self.pop(), self.pop());
+                    self.push(Value::Boolean(Value::is_same(a, b)));
+                }
                 _ => {
                     let op = self.read_byte();
                     self.runtime_error(format!("Unknown opcode: {}", op).as_str());
@@ -345,8 +333,8 @@ impl VM {
         for frame in self.frame_stack.iter().rev() {
             let chunk = &self.chunk;
             let line = chunk.get_line(self.pc);
-            print!(
-                "[line {}] in {}\n",
+            println!(
+                "[line {}] in {}",
                 line,
                 Value::Function(frame.function.clone())
             );
@@ -460,7 +448,7 @@ mod tests {
     }
 
     fn expect_none(vm: &mut VM, expr: &str) {
-        let res = vm.interpret(expr.to_string());
+        vm.interpret(expr.to_string());
         assert!(vm.last_value().is_none());
     }
 

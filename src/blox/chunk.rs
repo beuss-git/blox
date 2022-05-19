@@ -82,25 +82,18 @@ impl Chunk {
             }
         }
 
-        assert!(false);
-        0
+        unreachable!("Line should always be found");
     }
 
     pub fn get_value(&self, index: usize) -> Value {
         self.constants.get_value(index)
     }
 
-    /// Adds instruction into our chunk
-    pub fn add_instruction(&mut self, instruction: u8, line: usize) {
-        self.write_byte(instruction, line);
-    }
-
     /// Adds constant into our chunk and returns the index of the constant
-    pub fn add_constant(&mut self, value: Value, line: usize) -> usize {
+    pub fn add_constant(&mut self, value: Value) -> usize {
         self.constants.add_value(value);
-        let index = self.constants.len() - 1;
 
-        index
+        self.constants.len() - 1
     }
 
     pub fn patch_constant(&mut self, index: usize, value: Value) {

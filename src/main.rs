@@ -3,11 +3,11 @@ use std::{fs, io::Write};
 mod blox;
 
 fn main() {
-    //let source = fs::read_to_string("sources/test.bl").unwrap();
+    let source = fs::read_to_string("sources/test.bl").unwrap();
     let mut vm = blox::vm::VM::new();
-    //vm.interpret(source);
+    vm.interpret(source);
     // REPL
-    let mut input = String::new();
+    /*let mut input = String::new();
     loop {
         print!("> ");
         std::io::stdout()
@@ -22,5 +22,5 @@ fn main() {
         vm.interpret(input.clone());
 
         input.clear();
-    }
+    }*/
 }

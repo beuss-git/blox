@@ -1,7 +1,6 @@
-print 1;
-
-fun test() {
-    return 5;
+fun fib(n) {
+  if (n < 2) return n;
+  return fib(n - 1) + fib(n - 2); 
 }
 
-print test();
+print fib(35);

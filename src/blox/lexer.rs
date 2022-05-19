@@ -13,7 +13,7 @@ fn is_alpha(c: char) -> bool {
 }
 
 fn is_digit(c: char) -> bool {
-    return c.is_digit(10);
+    c.is_digit(10)
 }
 
 impl Lexer {
@@ -52,7 +52,7 @@ impl Lexer {
     }
 
     pub fn get_lexeme(&self, token: &Token) -> &str {
-        return &self.source[token.start..token.start + token.length];
+        &self.source[token.start..token.start + token.length]
     }
 
     pub fn scan_token(&mut self) -> Result<Token, LexerError> {

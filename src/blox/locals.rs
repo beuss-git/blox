@@ -16,7 +16,7 @@ impl Locals {
         self.scope_depth
     }
     pub fn is_full(&self) -> bool {
-        self.locals_count >= u8::MAX
+        self.locals_count == u8::MAX
     }
     pub fn begin_scope(&mut self) {
         self.scope_depth += 1;
@@ -42,7 +42,7 @@ impl Locals {
     /// Declares a local variable
     pub fn declare(&mut self, name: String) {
         self.stack[self.locals_count as usize] = Local {
-            name: name.to_string(),
+            name,
             depth: self.scope_depth,
             initialized: false,
         };
@@ -73,8 +73,9 @@ impl Locals {
         None
     }
 
+    #[allow(dead_code)]
     pub fn print(&self) {
-        for i in (0..self.locals_count) {
+        for i in 0..self.locals_count {
             let local = &self.stack[i as usize];
             println!("{:?}", local);
         }

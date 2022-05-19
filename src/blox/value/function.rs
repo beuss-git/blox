@@ -1,7 +1,4 @@
-use std::{
-    ops::{Deref, DerefMut},
-    rc::Rc,
-};
+use std::rc::Rc;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Function {
