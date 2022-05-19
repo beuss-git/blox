@@ -9,7 +9,7 @@ use super::value::{
     Value,
 };
 
-const DEBUG_TRACE_EXECUTION: bool = false;
+const DEBUG_TRACE_EXECUTION: bool = true;
 const DEBUG_DISASSEMBLY: bool = false;
 const MAX_FRAMES: usize = 255;
 
@@ -1140,6 +1140,71 @@ mod tests {
             print test();
         "#,
             Value::Number(5.0),
+        );
+
+        expect_compile_result(
+            r#"
+            fun printer(x) {
+                return "hello";
+            }
+            print printer();
+        "#,
+            InterpretResult::RuntimeError,
+        );
+
+        expect_value(
+            r#"
+            fun printer(x) {
+                return "hello";
+            }
+            print printer(2);
+        "#,
+            Value::String(Rc::from("hello")),
+        );
+
+        expect_value(
+            r#"
+            fun printer(x) {
+                return x;
+            }
+            print printer(2);
+        "#,
+            Value::Number(2.0),
+        );
+
+        expect_value(
+            r#"
+            fun fib(n) {
+                if (n < 2) return n;
+                return fib(n - 1) + fib(n - 2); 
+            }
+
+            print fib(10);
+        "#,
+            Value::Number(55.0),
+        );
+
+        expect_value(
+            r#"
+fun fib(n) {
+
+    var a = 0;
+    var b = 1;
+
+    for (var i = 0; i < n; i = i + 1) {
+        var tmp = a;
+        a = b;
+        b = tmp + b;
+    }
+    return a;
+}
+var n = 10;
+
+print fib(n);
+
+
+        "#,
+            Value::Number(55.0),
         );
     }
 }
