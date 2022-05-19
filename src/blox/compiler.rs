@@ -85,7 +85,7 @@ impl Compiler {
         //self.write_functions();
         self.compile_functions(chunk);
 
-        self.disassemble(chunk);
+        //self.disassemble(chunk);
 
         if self.parser.had_error {
             None
@@ -262,7 +262,7 @@ impl Compiler {
             } else {
                 self.current_function.name()
             };
-            chunk.disassemble_chunk_from(chunk_name, 0);
+            //chunk.disassemble_chunk_from(chunk_name, 0);
             self.current_function.set_start_address(start_address);
         }
 
