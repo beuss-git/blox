@@ -1,5 +1,6 @@
-use std::collections::hash_map::Entry;
-use std::{collections::HashMap, rc::Rc};
+use std::collections::btree_map::Entry;
+use std::collections::BTreeMap;
+use std::rc::Rc;
 
 use super::chunk::Chunk;
 use super::{compiler::Compiler, opcode};
@@ -29,7 +30,7 @@ pub struct VM {
     chunk: Chunk,
     value_stack: Vec<Value>,
     last_printed: Option<Value>,
-    globals: HashMap<Rc<str>, Value>,
+    globals: BTreeMap<Rc<str>, Value>,
 
     frame_stack: Vec<CallFrame>,
     pc: usize,
@@ -52,7 +53,7 @@ impl VM {
             chunk: Chunk::new(),
             value_stack: Vec::new(),
             last_printed: None,
-            globals: HashMap::new(),
+            globals: BTreeMap::new(),
             frame_stack: Vec::new(),
             pc: 0,
         }
