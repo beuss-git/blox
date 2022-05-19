@@ -155,7 +155,7 @@ impl VM {
                 self.compiler
                     .current_chunk()
                     .disassemble_instruction(self.pc);
-                //println!("Slot: {}", self.frame().first_slot);
+                println!("Slot: {}", self.frame().first_slot);
                 //self.compiler.locals.print();
                 //.disassemble_instruction(self.pc - self.chunk.code.len());
             }
@@ -1205,6 +1205,22 @@ print fib(n);
 
         "#,
             Value::Number(55.0),
+        );
+
+        // See if locals work properly in function in nested scope, they should reset and just use the function slot as local offset
+        expect_value(
+            r#"
+        {
+            fun returner(x) {
+                print x;
+                return x;
+            }
+
+            print returner(2);
+
+        }
+        "#,
+            Value::Number(2.0),
         );
     }
 }
