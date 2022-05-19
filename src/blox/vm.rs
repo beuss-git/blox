@@ -8,8 +8,6 @@ use super::{compiler::Compiler, opcode};
 
 use super::value::{function::Function, Value};
 
-const DEBUG_TRACE_EXECUTION: bool = false;
-const DEBUG_DISASSEMBLY: bool = false;
 const MAX_FRAMES: usize = 255;
 
 struct CallFrame {
@@ -53,6 +51,7 @@ pub struct VM {
 
     frame_stack: Vec<CallFrame>,
     pc: usize,
+    settings: Settings,
 }
 
 macro_rules! binary_op {
@@ -67,7 +66,7 @@ macro_rules! binary_op {
         };
 }
 impl VM {
-    pub fn new() -> Self {
+    pub fn new(settings: Settings) -> Self {
         let mut vm = Self {
             chunk: Chunk::new(),
             value_stack: Vec::with_capacity(8192),
@@ -75,6 +74,7 @@ impl VM {
             globals: BTreeMap::new(),
             frame_stack: Vec::with_capacity(MAX_FRAMES),
             pc: 0,
+            settings,
         };
         vm.define_native("clock", native_function::clock);
         vm.define_native(
@@ -89,7 +89,7 @@ impl VM {
     }
     pub fn interpret(&mut self, source: String) -> InterpretResult {
         let mut compiler = Compiler::new();
-        let compile_result = compiler.compile(source, &mut self.chunk);
+        let compile_result = compiler.compile(source, &mut self.chunk, self.settings.disassembly);
 
         match &compile_result {
             Some(function) => {
@@ -98,10 +98,6 @@ impl VM {
 
                 // Call the entry function
                 self.call(function, 0);
-
-                if DEBUG_DISASSEMBLY {
-                    //self.compiler.disassemble();
-                }
 
                 self.run()
             }
@@ -129,18 +125,16 @@ impl VM {
         self.last_printed = None;
 
         loop {
-            if DEBUG_TRACE_EXECUTION {
-                self.print_value_stack();
-                //self.compiler.chunk.disassemble_instruction(self.pc);
-                //self.frame().disassemble_instruction();
+            if self.settings.trace_execution {
                 self.chunk.disassemble_instruction(self.pc);
-                println!("Slot: {}", self.frame().slot_offset);
-                println!("Frames: {}", self.frame_stack.len());
-                //self.compiler.locals.print();
-                //.disassemble_instruction(self.pc - self.chunk.code.len());
             }
-
-            // TODO: make operations such as != >= and <= a single instruction
+            if self.settings.trace_stack {
+                self.print_value_stack();
+            }
+            if self.settings.frame_info {
+                println!("Frame count: {}", self.frame_stack.len());
+                println!("Current slot: {}", self.frame().slot_offset);
+            }
 
             // Decode the instruction
             match self.read_byte() {
@@ -461,7 +455,7 @@ impl VM {
 
         self.globals.insert(
             Rc::from(name),
-            Value::NativeFunction(Rc::from(native_function.clone())),
+            Value::NativeFunction(Rc::from(native_function)),
         );
 
         self.pop();
@@ -476,7 +470,7 @@ impl VM {
 
 impl Default for VM {
     fn default() -> Self {
-        Self::new()
+        Self::new(Settings::new())
     }
 }
 
@@ -491,13 +485,16 @@ pub enum InterpretResult {
 mod tests {
     use std::rc::Rc;
 
-    use crate::blox::{value::Value, vm::InterpretResult};
+    use crate::blox::{
+        value::Value,
+        vm::{InterpretResult, Settings},
+    };
 
     use super::VM;
 
     // TODO: Remove this when proper chunk support is implemented
     fn new_vm() -> VM {
-        VM::new()
+        VM::new(Settings::new())
     }
 
     fn expect_value(vm: &mut VM, expr: &str, expected: Value) {
