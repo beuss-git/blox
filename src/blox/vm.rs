@@ -1457,5 +1457,23 @@ print fib_non_recursive(n);
             "#,
             Value::Number(17.0),
         );
+
+        // Test more random placement
+        expect_value(
+            &mut vm,
+            r#"
+            fun clk() {
+                return clock();
+            }
+            print clk();
+
+            fun tester() {
+                return 1 + 2;
+            }
+
+            print tester();
+            "#,
+            Value::Number(3.0),
+        );
     }
 }
