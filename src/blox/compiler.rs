@@ -137,10 +137,6 @@ impl Compiler {
             match self.lexer.scan_token() {
                 Ok(token) => {
                     self.parser.current = token;
-                    // TODO: Fix this hack
-                    if self.parser.previous.kind == TokenKind::Eof {
-                        self.parser.previous = self.parser.current;
-                    }
                     break;
                 }
                 Err(err) => {
