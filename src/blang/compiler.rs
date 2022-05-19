@@ -19,6 +19,7 @@ pub struct Compiler {
     function_type: FunctionType,
     //chunks: Vec<Chunk>,
     chunk: Chunk,
+    func_start_address: usize,
     pub start_address: usize,
     start_address_set: bool,
 }
@@ -34,6 +35,7 @@ impl Compiler {
             function_type: FunctionType::Script,
             //chunks: Vec::new(),
             chunk: Chunk::new(),
+            func_start_address: 0,
             start_address: 0,
             start_address_set: false,
         };
@@ -72,7 +74,7 @@ impl Compiler {
     }
 
     pub fn disassemble(&self) {
-        self.current_chunk().disassemble_chunk("code");
+        self.current_chunk().disassemble_chunk_from("code", 0);
     }
 
     pub fn current_chunk(&self) -> &Chunk {
@@ -222,7 +224,11 @@ impl Compiler {
             } else {
                 &self.function.name()
             };
-            self.current_chunk().disassemble_chunk(chunk_name)
+            self.current_chunk()
+                .disassemble_chunk_from(chunk_name, self.func_start_address);
+
+            // Set start to after this function
+            self.func_start_address = self.chunk.code.len();
         }
 
         Rc::from(self.function.clone())
@@ -317,7 +323,11 @@ impl Compiler {
         let old_function_type = self.function_type;
         let old_function = self.function.clone();
         self.function_type = function_type;
-        //self.chunks.push(Chunk::new());
+        self.func_start_address = self.chunk.code.len();
+        let old_locals = self.locals.clone();
+        self.locals = Locals::new();
+        self.locals.declare(String::from("")); // Reserve slot 0 for the vm
+                                               //self.chunks.push(Chunk::new());
 
         let function_name = self.lexer.get_lexeme(&self.parser.previous).to_string();
         self.function.set_name(function_name.clone());
@@ -352,11 +362,12 @@ impl Compiler {
         // Parse in the body
         self.block();
 
+        self.end_scope();
         let function = self.end_compiler();
-        self.end_scope_func();
 
         self.function_type = old_function_type;
         self.function = old_function;
+        self.locals = old_locals;
 
         let constant = self.make_constant(Value::Function(function));
         self.emit_bytes(opcode::OP_CONSTANT, constant);

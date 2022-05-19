@@ -52,6 +52,7 @@ impl Locals {
     /// Marks the local variable as initialized
     pub fn define(&mut self) {
         self.stack[self.locals_count as usize - 1].initialized = true;
+        self.stack[self.locals_count as usize - 1].depth = self.scope_depth;
     }
 
     pub fn contains(&self, name: &str) -> bool {
