@@ -1,16 +1,7 @@
-fun fib(n) {
+print 1;
 
-    var a = 0;
-    var b = 1;
-
-    for (var i = 0; i < n; i = i + 1) {
-        var tmp = a;
-        a = b;
-        b = tmp + b;
-    }
-    return b;
+fun test() {
+    return 5;
 }
-    var n = 10000000;
 
-print fib(n);
-
+print test();

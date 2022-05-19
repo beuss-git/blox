@@ -1,9 +1,7 @@
-
-
-mod blang;
+mod blox;
 
 fn main() {
-    blang::main::main();
+    blox::main::main();
     // REPL
     /*
     let mut input = String::new();

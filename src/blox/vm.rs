@@ -430,7 +430,7 @@ pub enum InterpretResult {
 mod tests {
     use std::rc::Rc;
 
-    use crate::blang::{value::Value, vm::InterpretResult};
+    use crate::blox::{value::Value, vm::InterpretResult};
 
     use super::VM;
 

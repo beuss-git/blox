@@ -25,7 +25,7 @@ impl ValueArray {
 
 #[cfg(test)]
 mod tests {
-    use crate::blang::value::{value_array::ValueArray, Value};
+    use crate::blox::value::{value_array::ValueArray, Value};
 
     #[test]
     fn test_value_array() {
