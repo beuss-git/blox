@@ -47,6 +47,10 @@ pub fn clock(_: &[Value]) -> Value {
     Value::Number(since_epoch.as_nanos() as f64 / 1_000_000_000.0)
 }
 
+/*
+    These are very dangerous functions at the moment, no arg checks
+*/
+
 pub fn test_func_single_arg(args: &[Value]) -> Value {
     args[0].clone()
 }
