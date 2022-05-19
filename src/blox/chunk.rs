@@ -11,12 +11,14 @@ pub struct Chunk {
 }
 
 /// Prints the instruction and returns the offset to the next instruction.
+#[cfg(not(tarpaulin_include))]
 fn simple_instruction(name: &str, chunk: &Chunk, offset: usize) -> usize {
     println!("{}: {}", chunk.get_line(offset), name);
     offset + 1
 }
 
 /// Prints the instruction and returns the offset to the next instruction.
+#[cfg(not(tarpaulin_include))]
 fn constant_instruction(name: &str, chunk: &Chunk, offset: usize) -> usize {
     let slot = chunk.read_chunk(offset + 1);
     //print!("{}: {} {}, ", chunk.get_line(offset), name, constant_index);
@@ -26,12 +28,14 @@ fn constant_instruction(name: &str, chunk: &Chunk, offset: usize) -> usize {
     offset + 2
 }
 
+#[cfg(not(tarpaulin_include))]
 fn byte_instruction(name: &str, chunk: &Chunk, offset: usize) -> usize {
     let slot = chunk.read_chunk(offset + 1);
     println!("{}: {} {}", chunk.get_line(offset), name, slot);
     offset + 2
 }
 
+#[cfg(not(tarpaulin_include))]
 fn jump_instruction(name: &str, positive: bool, chunk: &Chunk, offset: usize) -> usize {
     let offset_jump: u16 =
         ((chunk.read_chunk(offset + 1) as u16) << 8) | chunk.read_chunk(offset + 2) as u16;
@@ -104,6 +108,7 @@ impl Chunk {
     }
 
     /// Disassembles the chunk
+    #[cfg(not(tarpaulin_include))]
     pub fn disassemble_chunk_from(&self, name: &str, start: usize) {
         println!("== {} ==", name);
 
@@ -114,6 +119,7 @@ impl Chunk {
     }
 
     /// Disassembles the instruction at the given offset
+    #[cfg(not(tarpaulin_include))]
     pub fn disassemble_instruction(&self, offset: usize) -> usize {
         // Print out the instruction offset
         print!("{:04} ", offset);
