@@ -29,6 +29,9 @@ impl Function {
     pub fn start_address(&self) -> usize {
         self.start_address
     }
+    pub fn set_arity(&mut self, arity: usize) {
+        self.arity = arity;
+    }
     pub fn inc_arity(&mut self) {
         self.arity += 1;
     }

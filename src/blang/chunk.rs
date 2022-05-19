@@ -106,6 +106,9 @@ impl Chunk {
     pub fn patch_constant(&mut self, index: usize, value: Value) {
         self.constants.set_value(index, value);
     }
+    pub fn get_constant(&mut self, index: usize) -> Value {
+        self.constants.get_value(index)
+    }
 
     /// Disassembles the chunk
     pub fn disassemble_chunk_from(&self, name: &str, start: usize) {

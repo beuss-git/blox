@@ -14,14 +14,18 @@ pub struct Compiler {
     parser: Parser,
     lexer: Lexer,
     //current_chunk: &'a mut Chunk, // The current chunk we are compiling into
-    pub locals: Locals, // All locals
-    function: Function, // Active function being built
+    pub locals: Locals,                           // All locals
+    current_function: Function,                   // Active function being built
+    function_starts: Vec<(Lexer, Parser, usize)>, // Lexer and parser state for all function declaration starts as well as the function constant index
+    //functions: Vec<u8>,                    // All function constants, used to patch later
+    //functions_code: Vec<Chunk>,
     function_type: FunctionType,
     //chunks: Vec<Chunk>,
     chunk: Chunk,
     func_start_address: usize,
     pub start_address: usize,
     start_address_set: bool,
+    commit: bool,
 }
 
 impl Compiler {
@@ -31,13 +35,17 @@ impl Compiler {
             lexer: Lexer::new(),
             //current_chunk: chunk,
             locals: Locals::new(),
-            function: Function::new(),
+            current_function: Function::new(),
+            function_starts: Vec::new(),
+            //functions: Vec::new(),
+            //functions_code: Vec::new(),
             function_type: FunctionType::Script,
             //chunks: Vec::new(),
             chunk: Chunk::new(),
             func_start_address: 0,
             start_address: 0,
             start_address_set: false,
+            commit: true,
         };
 
         // Set for the initial function
@@ -52,6 +60,64 @@ impl Compiler {
     //Rc::from(self.chunks[index].clone())
     //}
 
+    /*fn write_functions(&mut self) {
+        for i in 0..self.functions.len() {
+            let start_address = self.chunk.code.len();
+            let function_chunk = self.functions_code[i].clone();
+            // Set it to start at the end of the current address
+            for byte in function_chunk.code {
+                self.chunk.write_byte(byte, 0);
+            }
+
+            let function_constant_index = self.functions[i];
+            let mut function = self.chunk.get_constant(function_constant_index as usize);
+
+            let mut new_function = Function::new();
+            match function {
+                Value::Function(f) => {
+                    // A poor man's Rc clone :)
+                    new_function.set_arity(f.arity());
+                    new_function.set_chunk_index(f.chunk_index());
+                    new_function.set_name(f.name().to_string());
+                    new_function.set_start_address(start_address);
+                }
+                _ => (),
+            }
+
+            self.chunk.patch_constant(
+                function_constant_index as usize,
+                Value::Function(Rc::from(new_function)),
+            );
+        }
+    }*/
+    fn compile_functions(&mut self) {
+        while self.function_starts.len() > 0 {
+            let function_start = self.function_starts.pop().unwrap();
+            let start_address = self.chunk.code.len();
+
+            self.compile_function((function_start.0, function_start.1));
+
+            let function_constant_index = function_start.2;
+            let function = self.chunk.get_constant(function_constant_index as usize);
+
+            let mut new_function = Function::new();
+            match function {
+                Value::Function(f) => {
+                    // A poor man's Rc clone :)
+                    new_function.set_arity(f.arity());
+                    new_function.set_chunk_index(f.chunk_index());
+                    new_function.set_name(f.name().to_string());
+                    new_function.set_start_address(start_address);
+                }
+                _ => (),
+            }
+
+            self.chunk.patch_constant(
+                function_constant_index as usize,
+                Value::Function(Rc::from(new_function)),
+            );
+        }
+    }
     pub fn compile(&mut self, source: String) -> Option<Rc<Function>> {
         self.lexer.set_source(source);
 
@@ -65,6 +131,10 @@ impl Compiler {
         }
 
         let function = self.end_compiler();
+        //self.write_functions();
+        self.compile_functions();
+
+        self.disassemble();
 
         if self.parser.had_error {
             None
@@ -142,6 +212,10 @@ impl Compiler {
     }
 
     fn emit_byte(&mut self, byte: u8) {
+        if !self.commit {
+            return;
+        }
+
         let line_num = self.parser.previous.line;
         self.current_chunk_mut().write_byte(byte, line_num);
     }
@@ -170,6 +244,9 @@ impl Compiler {
     }
 
     fn emit_jump(&mut self, instruction: u8) -> usize {
+        if !self.commit {
+            return 0;
+        }
         self.emit_byte(instruction);
         self.emit_bytes(0xff, 0xff);
         // Return the offset of the jump instruction
@@ -177,12 +254,18 @@ impl Compiler {
     }
 
     fn emit_return(&mut self) {
+        if !self.commit {
+            return;
+        }
         // Default return value is nil
         self.emit_byte(opcode::OP_NIL);
         self.emit_byte(opcode::OP_RETURN);
     }
 
     fn make_constant(&mut self, value: Value) -> u8 {
+        if !self.commit {
+            return 0;
+        }
         let line_num = self.parser.previous.line;
         let constant_index = self.current_chunk_mut().add_constant(value, line_num);
 
@@ -192,17 +275,26 @@ impl Compiler {
         constant_index as u8
     }
     fn emit_constant(&mut self, constant: Value) -> u8 {
+        if !self.commit {
+            return 0;
+        }
         let constant_index = self.make_constant(constant);
         self.emit_bytes(opcode::OP_CONSTANT, constant_index);
         constant_index
     }
 
     fn patch_constant(&mut self, constant_index: u8, value: Value) {
+        if !self.commit {
+            return;
+        }
         self.current_chunk_mut()
             .patch_constant(constant_index as usize, value);
     }
 
     fn patch_jump(&mut self, offset: usize) {
+        if !self.commit {
+            return;
+        }
         let jump_offset = self.current_chunk().code.len() - offset - 2;
 
         if jump_offset > u16::MAX as usize {
@@ -221,19 +313,19 @@ impl Compiler {
         self.try_set_start_address();
 
         if !self.parser.had_error {
-            let chunk_name = if self.function.name().is_empty() {
+            let chunk_name = if self.current_function.name().is_empty() {
                 "<script>"
             } else {
-                &self.function.name()
+                &self.current_function.name()
             };
-            self.current_chunk()
-                .disassemble_chunk_from(chunk_name, self.func_start_address);
+            self.current_chunk().disassemble_chunk_from(chunk_name, 0);
+            //.disassemble_chunk_from(chunk_name, self.func_start_address);
 
             // Set start to after this function
             self.func_start_address = self.chunk.code.len();
         }
 
-        Rc::from(self.function.clone())
+        Rc::from(self.current_function.clone())
     }
 
     fn begin_scope(&mut self) {
@@ -321,17 +413,22 @@ impl Compiler {
         self.consume(TokenKind::RightBrace, "Expect '}' after block.");
     }
 
-    fn function(&mut self, function_type: FunctionType) {
+    fn function(&mut self, function_type: FunctionType) -> Rc<Function> {
         let old_function_type = self.function_type;
-        let old_function = self.function.clone();
+        let old_function = self.current_function.clone();
         self.function_type = function_type;
         self.func_start_address = self.chunk.code.len();
+        let start_addr = self.chunk.code.len();
         let old_locals = self.locals.clone();
+        //let old_chunk = self.chunk.clone();
+
         self.locals = Locals::new();
         self.locals.declare(String::from("")); // Reserve slot 0 for the vm
+                                               //self.chunk = Chunk::new();
 
         let function_name = self.lexer.get_lexeme(&self.parser.previous).to_string();
-        self.function.set_name(function_name.clone());
+        self.current_function.set_name(function_name.clone());
+        self.current_function.set_start_address(start_addr);
         //self.function.set_chunk_index(self.chunks.len() - 1);
 
         self.begin_scope();
@@ -340,8 +437,8 @@ impl Compiler {
 
         // If we have parameters, add them
         while !self.check(TokenKind::RightParen) {
-            self.function.inc_arity();
-            if self.function.arity() > 255 {
+            self.current_function.inc_arity();
+            if self.current_function.arity() > 255 {
                 self.error_at_current("Can't have more than 255 parameters");
             }
             let param_index = self.parse_variable("Expect parameter name");
@@ -359,34 +456,65 @@ impl Compiler {
         self.consume(TokenKind::LeftBrace, "Expect '{' before function body.");
 
         let function_start_address = self.current_chunk().code.len();
-        self.function.set_start_address(function_start_address);
+        //self.current_function
+        //.set_start_address(function_start_address);
         // Parse in the body
         self.block();
 
         self.end_scope();
+
         let function = self.end_compiler();
 
-        self.function_type = old_function_type;
-        self.function = old_function;
-        self.locals = old_locals;
+        // Add the compiled function to the list of functions
+        //self.functions_code.push(self.chunk.clone());
 
-        let constant = self.make_constant(Value::Function(function));
-        self.emit_bytes(opcode::OP_CONSTANT, constant);
+        self.function_type = old_function_type;
+        self.current_function = old_function;
+        self.locals = old_locals;
+        //self.chunk = old_chunk;
+
+        function
     }
 
     fn function_declaration(&mut self) {
         // Get the name of the function
         let global = self.parse_variable("Expect function name.");
 
+        // Defer function compilation, so store lexer state
+        let lexer_state = self.lexer.clone();
+        let parser_state = self.parser.clone();
+
+        // Just get it past the function
+
+        self.commit = false;
+        let function = self.compile_function((self.lexer.clone(), self.parser.clone()));
+        self.commit = true;
+
+        // Emit the function constant immediately, don't defer this
+        let constant = self.make_constant(Value::Function(function));
+        self.emit_bytes(opcode::OP_CONSTANT, constant);
+
+        self.function_starts
+            .push((lexer_state, parser_state, constant as usize));
+
+        // Define it as a global, will also try to define the local, but that has already been done
+        self.define_variable(global);
+    }
+    fn compile_function(&mut self, state: (Lexer, Parser)) -> Rc<Function> {
+        // Set state to a state where the function name has been parsed and the global has been defined
+        self.lexer = state.0;
+        self.parser = state.1;
+
+        //self.function_declaration();
+
         // Define it, aka mark it as initialized
         if self.is_scoped() {
             self.mark_initialized();
         }
 
-        self.function(FunctionType::Function);
+        self.function(FunctionType::Function)
 
-        // Define it as a global, will also try to define the local, but that has already been done
-        self.define_variable(global);
+        // TODO: Restore lexer state? Realistically it won't be used again since we are in a state of only compiling functions
     }
 
     fn var_declaration(&mut self) {
@@ -777,6 +905,7 @@ impl Compiler {
 
     fn parse_variable(&mut self, message: &str) -> u8 {
         // Consume the identifier
+
         self.consume(TokenKind::Identifier, message);
 
         self.declare_variable();

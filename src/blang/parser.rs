@@ -1,4 +1,5 @@
 use super::lexer::{Token, TokenKind};
+#[derive(Clone)]
 pub struct Parser {
     pub current: Token,
     pub previous: Token,

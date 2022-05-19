@@ -146,7 +146,7 @@ impl VM {
         self.value_stack[absolute_slot] = value.clone();
     }
     fn run(&mut self) -> InterpretResult {
-        self.pc = self.compiler.start_address;
+        //self.pc = self.compiler.start_address;
         loop {
             if DEBUG_TRACE_EXECUTION {
                 self.print_value_stack();
@@ -387,6 +387,7 @@ impl VM {
             self.value_stack.len() - arg_count as usize - 1,
             self.pc,
         );
+        println!("Calling {}", function.name());
         self.pc = function.start_address();
         //println!("{:?}", self.value_stack[frame.first_slot]);
         //println!("First slot: {}", frame.first_slot);
