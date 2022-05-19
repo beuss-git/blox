@@ -1223,5 +1223,34 @@ print fib(n);
         "#,
             Value::Number(2.0),
         );
+
+        expect_value(
+            r#"
+        {
+            var a = 3;
+
+            fun test(n) {
+                return n;
+            }
+
+            print test(a);
+
+        }
+        "#,
+            Value::Number(3.0),
+        );
+
+        expect_value(
+            r#"
+            var a = 3;
+
+            fun test(n) {
+                return n;
+            }
+
+            print test(a);
+        "#,
+            Value::Number(3.0),
+        );
     }
 }
