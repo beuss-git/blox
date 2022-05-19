@@ -1,8 +1,5 @@
 use std::fs;
 
-use super::chunk::*;
-use super::compiler::Compiler;
-use super::opcode;
 use super::vm::VM;
 
 pub(crate) fn main() {

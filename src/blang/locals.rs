@@ -80,6 +80,7 @@ impl Locals {
         }
     }
 }
+
 #[derive(Debug, Clone)]
 pub struct Local {
     name: String,

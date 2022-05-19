@@ -9,58 +9,24 @@ use super::value::{
     Value,
 };
 
-const DEBUG_TRACE_EXECUTION: bool = true;
+const DEBUG_TRACE_EXECUTION: bool = false;
 const DEBUG_DISASSEMBLY: bool = false;
 const MAX_FRAMES: usize = 255;
 
 struct CallFrame {
     function: Rc<Function>, // The function being called
-    //pc: usize,              // Program counter for the call frame
-    first_slot: usize, // The index of the first local slot in the call frame
-    //chunk: Rc<Chunk>,       // The chunk of the function
-    return_addr: usize, // The address to return to after executing this callframe
+    slot_offset: usize,     // The index of the first local slot in the call frame
+    return_addr: usize,     // The address to return to after executing this callframe
 }
 
 impl CallFrame {
-    //pub fn chunk(&self) -> &Chunk {
-    //&self.chunk.clone()
-    //}
-    fn new(function: Rc<Function>, first_slot: usize, return_addr: usize) -> Self {
+    fn new(function: Rc<Function>, slot_offset: usize, return_addr: usize) -> Self {
         Self {
             function,
-            //pc: 0,
-            first_slot,
+            slot_offset,
             return_addr,
-            //chunk,
         }
     }
-    //pub fn disassemble_instruction(&self) -> usize {
-    //self.chunk.disassemble_instruction(self.pc)
-    //}
-    //pub fn print_line(&self, message: &str) {
-    //println!("[line {}] {}", self.chunk.get_line(self.pc), message);
-    //self.chunk.disassemble_instruction(self.pc);
-    //}
-    /*pub fn add_pc(&mut self, val: usize) {
-        self.pc += val;
-    }
-    pub fn dec_pc(&mut self, val: usize) {
-        self.pc -= val;
-    }
-    pub fn pc(&self) -> usize {
-        self.pc
-    }
-    pub fn byte(&self, pc: usize) -> u8 {
-        self.chunk.read_chunk(pc)
-    }
-    pub fn get_value(&self, slot: usize) -> Value {
-        //self.chunk.borrow().get_value(self.first_slot + slot)
-        self.chunk.get_value(slot)
-    }
-
-    pub fn byte_relative(&self, offset: isize) -> u8 {
-        self.chunk.read_chunk((self.pc as isize + offset) as usize)
-    }*/
 }
 pub struct VM {
     compiler: Compiler,
@@ -70,7 +36,6 @@ pub struct VM {
 
     frame_stack: Vec<CallFrame>,
     pc: usize,
-    //frame_count: usize,
 }
 
 macro_rules! binary_op {
@@ -104,14 +69,6 @@ impl VM {
 
                 // Call the entry function
                 self.call(function, 0);
-                /*let func_chunk = self.compiler.chunk_at_index(function.chunk_index());
-
-                self.frame_stack.push(CallFrame {
-                    function: function.clone(),
-                    pc: 0,
-                    first_slot: self.value_stack.len() - 1,
-                    chunk: func_chunk,
-                });*/
 
                 if DEBUG_DISASSEMBLY {
                     self.compiler.disassemble();
@@ -138,11 +95,11 @@ impl VM {
         &mut self.frame_stack[frame_count - 1]
     }
     fn get_value(&mut self, slot: usize) -> &Value {
-        let absolute_slot = self.frame().first_slot + slot;
+        let absolute_slot = self.frame().slot_offset + slot;
         &self.value_stack[absolute_slot]
     }
     fn set_value(&mut self, slot: usize, value: &Value) {
-        let absolute_slot = self.frame().first_slot + slot;
+        let absolute_slot = self.frame().slot_offset + slot;
         self.value_stack[absolute_slot] = value.clone();
     }
     fn run(&mut self) -> InterpretResult {
@@ -155,11 +112,13 @@ impl VM {
                 self.compiler
                     .current_chunk()
                     .disassemble_instruction(self.pc);
-                println!("Slot: {}", self.frame().first_slot);
+                println!("Slot: {}", self.frame().slot_offset);
                 //self.compiler.locals.print();
                 //.disassemble_instruction(self.pc - self.chunk.code.len());
             }
+
             // TODO: make operations such as != >= and <= a single instruction
+
             // Decode the instruction
             match self.read_byte() {
                 opcode::OP_GREATER => binary_op!(self, Boolean, >),
@@ -239,8 +198,7 @@ impl VM {
                     //return InterpretResult::Ok;
                     let result = self.pop();
                     // Gather all frame data before popping it
-                    let slot = self.frame().first_slot;
-                    let arity = self.frame().function.arity();
+                    let slot = self.frame().slot_offset;
                     let return_addr = self.frame().return_addr;
 
                     self.frame_stack.pop();
@@ -249,22 +207,9 @@ impl VM {
                         self.pop();
                         return InterpretResult::Ok;
                     }
-                    //println!("{}", self.value_stack[slot]);
-                    //self.value_stack.truncate(self.value_stack.len() - slot);
-                    // +1 for the return address
-                    //let return_address = self.value_stack[slot + arity].clone();
 
                     self.value_stack.truncate(slot);
-                    //self.print_value_stack();
-                    //for i in 0..slot {
-                    //self.value_stack.pop();
-                    //}
-                    /*match return_address {
-                        Value::Number(x) => {
-                            self.pc = x as usize;
-                        }
-                        _ => {}
-                    }*/
+
                     self.pc = return_addr;
 
                     self.push(result);
@@ -356,7 +301,6 @@ impl VM {
                 }
             }
         }
-        //InterpretResult::Ok
     }
 
     fn peek_n(&self, n: usize) -> &Value {
@@ -383,14 +327,10 @@ impl VM {
         // Insert a new callframe
         let frame = CallFrame::new(
             function.clone(),
-            //self.compiler.chunk_at_index(function.chunk_index()),
             self.value_stack.len() - arg_count as usize - 1,
             self.pc,
         );
-        println!("Calling {}", function.name());
         self.pc = function.start_address();
-        //println!("{:?}", self.value_stack[frame.first_slot]);
-        //println!("First slot: {}", frame.first_slot);
         self.frame_stack.push(frame);
         true
     }

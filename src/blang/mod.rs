@@ -1,11 +1,11 @@
-pub mod blang_test;
-pub mod chunk;
+mod blang_test;
+mod chunk;
 pub mod main;
-pub mod opcode;
-pub mod value;
-pub mod vm;
+mod opcode;
+mod value;
+mod vm;
 
 mod compiler;
 mod lexer;
-mod parser;
 mod locals;
+mod parser;

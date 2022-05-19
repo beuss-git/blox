@@ -81,10 +81,6 @@ impl Lexer {
             }),
             Err(err) => Err(err),
         }
-        /*if token.kind != expected {
-            return Err(LexerError::new("Unexpected token", self.line));
-        }
-        return Ok(token);*/
     }
 
     fn match_token(&mut self, c: char) -> Result<TokenKind, LexerError> {

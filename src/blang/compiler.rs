@@ -1,5 +1,3 @@
-use std::cell::RefCell;
-use std::error::Error;
 use std::rc::Rc;
 
 use super::lexer::Token;
@@ -13,18 +11,20 @@ use super::{chunk::Chunk, lexer::Lexer, lexer::TokenKind, locals::Locals, parser
 pub struct Compiler {
     parser: Parser,
     lexer: Lexer,
-    //current_chunk: &'a mut Chunk, // The current chunk we are compiling into
-    pub locals: Locals,                           // All locals
+    locals: Locals,                               // All locals
     current_function: Function,                   // Active function being built
     function_starts: Vec<(Lexer, Parser, usize)>, // Lexer and parser state for all function declaration starts as well as the function constant index
-    //functions: Vec<u8>,                    // All function constants, used to patch later
-    //functions_code: Vec<Chunk>,
     function_type: FunctionType,
-    //chunks: Vec<Chunk>,
     chunk: Chunk,
     func_start_address: usize,
     pub start_address: usize,
     start_address_set: bool,
+
+    // VERY HACKY: If true the compiler will commit the changes to the chunk
+    // In order to keep functions in the same chunk and be able to declare functions anywhere I have to defer function compilation to the end of the script
+    // But since this is a single pass compiler I can't do this in the parser when the function declaration is first encountered,
+    //  and I need to use this commit flag to skip over function declarations and bodies and not commit them
+    // If I had more time I would have loved to convert this to a proper AST and use a visitor pattern to handle this
     commit: bool,
 }
 
@@ -33,14 +33,10 @@ impl Compiler {
         let mut compiler = Self {
             parser: Parser::new(),
             lexer: Lexer::new(),
-            //current_chunk: chunk,
             locals: Locals::new(),
             current_function: Function::new(),
             function_starts: Vec::new(),
-            //functions: Vec::new(),
-            //functions_code: Vec::new(),
             function_type: FunctionType::Script,
-            //chunks: Vec::new(),
             chunk: Chunk::new(),
             func_start_address: 0,
             start_address: 0,
@@ -48,48 +44,10 @@ impl Compiler {
             commit: true,
         };
 
-        // Set for the initial function
-        //compiler.chunks.push(Chunk::new());
-
         compiler.locals.declare(String::from("")); // Reserve slot 0 for the vm
         compiler
     }
 
-    //pub fn chunk_at_index(&self, index: usize) -> Rc<Chunk> {
-    // TODO: don't clone, and don't derive from it in chunk and valuaarray
-    //Rc::from(self.chunks[index].clone())
-    //}
-
-    /*fn write_functions(&mut self) {
-        for i in 0..self.functions.len() {
-            let start_address = self.chunk.code.len();
-            let function_chunk = self.functions_code[i].clone();
-            // Set it to start at the end of the current address
-            for byte in function_chunk.code {
-                self.chunk.write_byte(byte, 0);
-            }
-
-            let function_constant_index = self.functions[i];
-            let mut function = self.chunk.get_constant(function_constant_index as usize);
-
-            let mut new_function = Function::new();
-            match function {
-                Value::Function(f) => {
-                    // A poor man's Rc clone :)
-                    new_function.set_arity(f.arity());
-                    new_function.set_chunk_index(f.chunk_index());
-                    new_function.set_name(f.name().to_string());
-                    new_function.set_start_address(start_address);
-                }
-                _ => (),
-            }
-
-            self.chunk.patch_constant(
-                function_constant_index as usize,
-                Value::Function(Rc::from(new_function)),
-            );
-        }
-    }*/
     fn compile_functions(&mut self) {
         while self.function_starts.len() > 0 {
             let function_start = self.function_starts.pop().unwrap();
@@ -219,11 +177,7 @@ impl Compiler {
         let line_num = self.parser.previous.line;
         self.current_chunk_mut().write_byte(byte, line_num);
     }
-    /*fn emit_bytes(&mut self, bytes: &[u8]) {
-        for byte in bytes {
-            self.emit_byte(*byte);
-        }
-    }*/
+
     fn emit_bytes(&mut self, byte1: u8, byte2: u8) {
         self.emit_byte(byte1);
         self.emit_byte(byte2);
@@ -455,9 +409,6 @@ impl Compiler {
         );
         self.consume(TokenKind::LeftBrace, "Expect '{' before function body.");
 
-        let function_start_address = self.current_chunk().code.len();
-        //self.current_function
-        //.set_start_address(function_start_address);
         // Parse in the body
         self.block();
 
@@ -465,13 +416,9 @@ impl Compiler {
 
         let function = self.end_compiler();
 
-        // Add the compiled function to the list of functions
-        //self.functions_code.push(self.chunk.clone());
-
         self.function_type = old_function_type;
         self.current_function = old_function;
         self.locals = old_locals;
-        //self.chunk = old_chunk;
 
         function
     }
@@ -505,8 +452,6 @@ impl Compiler {
         self.lexer = state.0;
         self.parser = state.1;
 
-        //self.function_declaration();
-
         // Define it, aka mark it as initialized
         if self.is_scoped() {
             self.mark_initialized();
@@ -514,7 +459,7 @@ impl Compiler {
 
         self.function(FunctionType::Function)
 
-        // TODO: Restore lexer state? Realistically it won't be used again since we are in a state of only compiling functions
+        // TODO: Restore lexer and parser state? Realistically it won't be used again since we are in a state of only compiling functions
     }
 
     fn var_declaration(&mut self) {
@@ -568,24 +513,6 @@ impl Compiler {
         }
         // Patch the jump to the end of the else statement
         self.patch_jump(else_jump);
-
-        /*self.consume(TokenKind::LeftParen, "Expect '(' after 'if'.");
-        self.expression();
-        self.consume(TokenKind::RightParen, "Expect ')' after condition.");
-
-        let then_jump = self.emit_jump(opcode::OP_JUMP_IF_FALSE);
-        self.emit_byte(opcode::OP_POP);
-        self.statement();
-
-        let else_jump = self.emit_jump(opcode::OP_JUMP);
-
-        self.patch_jump(then_jump);
-        self.emit_byte(opcode::OP_POP);
-
-        if self.match_token(TokenKind::Else) {
-            self.statement();
-        }
-        self.patch_jump(else_jump);*/
     }
 
     fn for_statement(&mut self) {
@@ -593,10 +520,7 @@ impl Compiler {
 
         self.consume(TokenKind::LeftParen, "Expect '(' after 'for'.");
         if self.match_token(TokenKind::Semicolon) {
-            // No initializer, so we just jump to the loop condition
-            //let loop_start = self.current_chunk.code.len();
-            //self.emit_jump(opcode::OP_JUMP);
-            //self.loop_stack.push(loop_start);
+            // No initializer
         } else if self.match_token(TokenKind::Var) {
             self.var_declaration();
         } else {
@@ -621,10 +545,9 @@ impl Compiler {
             let increment_start = self.current_chunk().code.len();
             // Compile the increment expression
             self.expression();
-            self.emit_byte(opcode::OP_POP);
 
             // Pop the value of the increment expression
-            //self.emit_byte(opcode::OP_POP);
+            self.emit_byte(opcode::OP_POP);
 
             self.consume(TokenKind::RightParen, "Expect ')' after for clauses.");
 
@@ -797,14 +720,8 @@ impl Compiler {
 
     fn call(&mut self) {
         // Emit the return address constant
-        //let constant_index = self.emit_constant(Value::Number(0.0));
-
         let argument_count = self.argument_list();
         self.emit_bytes(opcode::OP_CALL, argument_count);
-
-        let address = self.current_chunk().code.len();
-        // Patch the return address with the actual return address
-        //self.patch_constant(constant_index, Value::Number(address as f64))
     }
 
     fn literal(&mut self) {
