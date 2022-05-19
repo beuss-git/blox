@@ -86,12 +86,13 @@ impl ArgParse {
             i += 1;
         }
 
-        if self.args.contains_key("help") {
+        if self.args.contains_key("--help") {
             self.print_help();
         }
         true
     }
 
+    #[cfg(not(tarpaulin_include))]
     pub fn parse(&mut self) -> bool {
         let mut args = std::env::args();
         // Skip the program name
@@ -132,9 +133,9 @@ impl ArgParse {
     }
 
     #[allow(dead_code)]
-    pub fn default(&mut self, value: String) -> &mut Self {
+    pub fn default(&mut self, value: &str) -> &mut Self {
         if let Some(last) = &self.current {
-            self.args.get_mut(last).unwrap().default = Some(value);
+            self.args.get_mut(last).unwrap().default = Some(value.to_string());
         } else {
             panic!("No argument specified before 'default'");
         }
@@ -145,19 +146,20 @@ impl ArgParse {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     #[test]
     fn test_argparser() {
-        use super::*;
-
         let mut parser = ArgParse::new();
         parser.arg("--help").help("Print this help message");
-        parser.arg("--default").default(String::from("default"));
+        parser.arg("--default").default("default");
         parser.arg("--value");
 
         let args = vec![
             String::from("--help"),
             String::from("--value"),
             String::from("value"),
+            String::from("non-bound1"),
+            String::from("non-bound2"),
         ];
         parser.internal_parse(args);
 
@@ -165,5 +167,22 @@ mod tests {
         assert_eq!(parser.get("--value"), Some("value".to_string()));
         assert_eq!(parser.get("--default"), Some("default".to_string()));
         assert_eq!(parser.get("blah"), None);
+        assert_eq!(parser.get_non_bound().len(), 2);
+        assert_eq!(parser.get_non_bound()[0], "non-bound1".to_string());
+        assert_eq!(parser.get_non_bound()[1], "non-bound2".to_string());
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_invalid_help() {
+        let mut parser = ArgParse::new();
+        parser.help("Print this help message");
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_invalid_default() {
+        let mut parser = ArgParse::new();
+        parser.default("default");
     }
 }
