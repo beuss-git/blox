@@ -15,31 +15,33 @@ const MAX_FRAMES: usize = 255;
 
 struct CallFrame {
     function: Rc<Function>, // The function being called
-    pc: usize,              // Program counter for the call frame
-    first_slot: usize,      // The index of the first local slot in the call frame
-    chunk: Rc<Chunk>,       // The chunk of the function
+    //pc: usize,              // Program counter for the call frame
+    first_slot: usize, // The index of the first local slot in the call frame
+    //chunk: Rc<Chunk>,       // The chunk of the function
+    return_addr: usize, // The address to return to after executing this callframe
 }
 
 impl CallFrame {
     //pub fn chunk(&self) -> &Chunk {
     //&self.chunk.clone()
     //}
-    fn new(function: Rc<Function>, chunk: Rc<Chunk>, first_slot: usize) -> Self {
+    fn new(function: Rc<Function>, first_slot: usize, return_addr: usize) -> Self {
         Self {
             function,
-            pc: 0,
+            //pc: 0,
             first_slot,
-            chunk,
+            return_addr,
+            //chunk,
         }
     }
-    pub fn disassemble_instruction(&self) -> usize {
-        self.chunk.disassemble_instruction(self.pc)
-    }
-    pub fn print_line(&self, message: &str) {
-        println!("[line {}] {}", self.chunk.get_line(self.pc), message);
-        //self.chunk.disassemble_instruction(self.pc);
-    }
-    pub fn add_pc(&mut self, val: usize) {
+    //pub fn disassemble_instruction(&self) -> usize {
+    //self.chunk.disassemble_instruction(self.pc)
+    //}
+    //pub fn print_line(&self, message: &str) {
+    //println!("[line {}] {}", self.chunk.get_line(self.pc), message);
+    //self.chunk.disassemble_instruction(self.pc);
+    //}
+    /*pub fn add_pc(&mut self, val: usize) {
         self.pc += val;
     }
     pub fn dec_pc(&mut self, val: usize) {
@@ -58,7 +60,7 @@ impl CallFrame {
 
     pub fn byte_relative(&self, offset: isize) -> u8 {
         self.chunk.read_chunk((self.pc as isize + offset) as usize)
-    }
+    }*/
 }
 pub struct VM {
     compiler: Compiler,
@@ -67,6 +69,7 @@ pub struct VM {
     globals: HashMap<Rc<str>, Value>,
 
     frame_stack: Vec<CallFrame>,
+    pc: usize,
     //frame_count: usize,
 }
 
@@ -89,6 +92,7 @@ impl VM {
             last_printed: None,
             globals: HashMap::new(),
             frame_stack: Vec::new(),
+            pc: 0,
             //frame_count: 0,
         }
     }
@@ -142,12 +146,16 @@ impl VM {
         self.value_stack[absolute_slot] = value.clone();
     }
     fn run(&mut self) -> InterpretResult {
+        self.pc = self.compiler.start_address;
         loop {
             if DEBUG_TRACE_EXECUTION {
                 self.print_value_stack();
-                //self.chunk.disassemble_instruction(self.pc);
-                self.frame().disassemble_instruction();
-                println!("Slot: {}", self.frame().first_slot);
+                //self.compiler.chunk.disassemble_instruction(self.pc);
+                //self.frame().disassemble_instruction();
+                self.compiler
+                    .current_chunk()
+                    .disassemble_instruction(self.pc);
+                //println!("Slot: {}", self.frame().first_slot);
                 //self.compiler.locals.print();
                 //.disassemble_instruction(self.pc - self.chunk.code.len());
             }
@@ -203,22 +211,26 @@ impl VM {
                 }
                 opcode::OP_JUMP_BACK => {
                     let offset = self.read_short();
-                    self.frame_mut().dec_pc(offset as usize);
+                    self.pc -= offset as usize;
+                    //self.frame_mut().dec_pc(offset as usize);
                 }
                 opcode::OP_JUMP => {
                     let offset = self.read_short();
-                    self.frame_mut().add_pc(offset as usize);
+                    self.pc += offset as usize;
+                    //self.frame_mut().add_pc(offset as usize);
                 }
                 opcode::OP_JUMP_IF_FALSE => {
                     let offset = self.read_short();
                     if self.peek().is_falsey() {
-                        self.frame_mut().add_pc(offset as usize);
+                        //self.frame_mut().add_pc(offset as usize);
+                        self.pc += offset as usize;
                     }
                     // Else keep on churning
                 }
                 opcode::OP_CALL => {
                     let arg_count = self.read_byte() as usize;
                     let function = self.peek_n(arg_count).clone();
+                    //self.push(Value::Number(self.pc as f64));
                     if !self.call_function(function, arg_count as u8) {
                         return InterpretResult::RuntimeError;
                     }
@@ -226,7 +238,11 @@ impl VM {
                 opcode::OP_RETURN => {
                     //return InterpretResult::Ok;
                     let result = self.pop();
+                    // Gather all frame data before popping it
                     let slot = self.frame().first_slot;
+                    let arity = self.frame().function.arity();
+                    let return_addr = self.frame().return_addr;
+
                     self.frame_stack.pop();
 
                     if self.frame_stack.is_empty() {
@@ -235,11 +251,21 @@ impl VM {
                     }
                     //println!("{}", self.value_stack[slot]);
                     //self.value_stack.truncate(self.value_stack.len() - slot);
+                    // +1 for the return address
+                    //let return_address = self.value_stack[slot + arity].clone();
+
                     self.value_stack.truncate(slot);
                     //self.print_value_stack();
                     //for i in 0..slot {
                     //self.value_stack.pop();
                     //}
+                    /*match return_address {
+                        Value::Number(x) => {
+                            self.pc = x as usize;
+                        }
+                        _ => {}
+                    }*/
+                    self.pc = return_addr;
 
                     self.push(result);
                 }
@@ -357,9 +383,11 @@ impl VM {
         // Insert a new callframe
         let frame = CallFrame::new(
             function.clone(),
-            self.compiler.chunk_at_index(function.chunk_index()),
+            //self.compiler.chunk_at_index(function.chunk_index()),
             self.value_stack.len() - arg_count as usize - 1,
+            self.pc,
         );
+        self.pc = function.start_address();
         //println!("{:?}", self.value_stack[frame.first_slot]);
         //println!("First slot: {}", frame.first_slot);
         self.frame_stack.push(frame);
@@ -368,8 +396,8 @@ impl VM {
 
     fn stack_trace(&self) {
         for frame in self.frame_stack.iter().rev() {
-            let chunk = self.compiler.chunk_at_index(frame.function.chunk_index());
-            let line = chunk.get_line(frame.pc());
+            let chunk = self.compiler.current_chunk();
+            let line = chunk.get_line(self.pc);
             print!(
                 "[line {}] in {}\n",
                 line,
@@ -385,25 +413,34 @@ impl VM {
                 //self.frames.push(frame);
                 self.call(f, arg_count)
             }
-            _ => {
-                self.runtime_error("Can only call functions.");
+            x => {
+                self.runtime_error(format!("Can only call functions. Got {:?}", x).as_str());
                 false
             }
         }
     }
 
     fn read_byte(&mut self) -> u8 {
-        self.frame_mut().add_pc(1);
-        self.frame().byte_relative(-1)
+        //self.frame_mut().add_pc(1);
+        self.pc += 1;
+        self.compiler.current_chunk().read_chunk(self.pc - 1)
+        ////self.frame().byte_relative(-1)
     }
 
     fn read_short(&mut self) -> u16 {
-        self.frame_mut().add_pc(2);
-        ((self.frame().byte_relative(-2) as u16) << 8) | (self.frame().byte_relative(-1) as u16)
+        //self.frame_mut().add_pc(2);
+        self.pc += 2;
+        //((self.frame().byte_relative(-2) as u16) << 8) | (self.frame().byte_relative(-1) as u16)
+        ((self.compiler.current_chunk().read_chunk(self.pc - 2) as u16) << 8)
+            | (self.compiler.current_chunk().read_chunk(self.pc - 1) as u16)
+        //((self.frame().byte_relative(-2) as u16) << 8) | (self.frame().byte_relative(-1) as u16)
     }
     fn read_constant(&mut self) -> Value {
         let constant_index = self.read_byte();
-        self.frame().get_value(constant_index as usize)
+        //self.frame().get_value(constant_index as usize)
+        self.compiler
+            .current_chunk()
+            .get_value(constant_index as usize)
     }
     fn print_value_stack(&self) {
         for value in self.value_stack.iter() {
@@ -422,7 +459,15 @@ impl VM {
     }
 
     fn runtime_error(&self, message: &str) {
-        self.frame().print_line(message);
+        println!(
+            "[line {}] {}",
+            self.compiler.current_chunk().get_line(self.pc),
+            message
+        );
+        self.compiler
+            .current_chunk()
+            .disassemble_instruction(self.pc);
+        //self.frame().print_line(message);
 
         self.stack_trace();
     }

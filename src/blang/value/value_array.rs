@@ -12,6 +12,9 @@ impl ValueArray {
     pub fn add_value(&mut self, value: Value) {
         self.values.push(value);
     }
+    pub fn set_value(&mut self, index: usize, value: Value) {
+        self.values[index] = value;
+    }
     pub fn get_value(&self, index: usize) -> Value {
         self.values[index].clone()
     }

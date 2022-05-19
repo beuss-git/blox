@@ -17,7 +17,10 @@ pub struct Compiler {
     pub locals: Locals, // All locals
     function: Function, // Active function being built
     function_type: FunctionType,
-    chunks: Vec<Chunk>,
+    //chunks: Vec<Chunk>,
+    chunk: Chunk,
+    pub start_address: usize,
+    start_address_set: bool,
 }
 
 impl Compiler {
@@ -29,20 +32,23 @@ impl Compiler {
             locals: Locals::new(),
             function: Function::new(),
             function_type: FunctionType::Script,
-            chunks: Vec::new(),
+            //chunks: Vec::new(),
+            chunk: Chunk::new(),
+            start_address: 0,
+            start_address_set: false,
         };
 
         // Set for the initial function
-        compiler.chunks.push(Chunk::new());
+        //compiler.chunks.push(Chunk::new());
 
         compiler.locals.declare(String::from("")); // Reserve slot 0 for the vm
         compiler
     }
 
-    pub fn chunk_at_index(&self, index: usize) -> Rc<Chunk> {
-        // TODO: don't clone, and don't derive from it in chunk and valuaarray
-        Rc::from(self.chunks[index].clone())
-    }
+    //pub fn chunk_at_index(&self, index: usize) -> Rc<Chunk> {
+    // TODO: don't clone, and don't derive from it in chunk and valuaarray
+    //Rc::from(self.chunks[index].clone())
+    //}
 
     pub fn compile(&mut self, source: String) -> Option<Rc<Function>> {
         self.lexer.set_source(source);
@@ -70,11 +76,11 @@ impl Compiler {
     }
 
     pub fn current_chunk(&self) -> &Chunk {
-        &self.chunks[self.function.chunk_index()]
+        &self.chunk
     }
 
     pub fn current_chunk_mut(&mut self) -> &mut Chunk {
-        &mut self.chunks[self.function.chunk_index()]
+        &mut self.chunk
     }
 
     // TODO: move to parser?
@@ -181,9 +187,15 @@ impl Compiler {
         }
         constant_index as u8
     }
-    fn emit_constant(&mut self, constant: Value) {
+    fn emit_constant(&mut self, constant: Value) -> u8 {
         let constant_index = self.make_constant(constant);
         self.emit_bytes(opcode::OP_CONSTANT, constant_index);
+        constant_index
+    }
+
+    fn patch_constant(&mut self, constant_index: u8, value: Value) {
+        self.current_chunk_mut()
+            .patch_constant(constant_index as usize, value);
     }
 
     fn patch_jump(&mut self, offset: usize) {
@@ -201,6 +213,8 @@ impl Compiler {
     // Returns compiled function, the compiler only operates on functions
     fn end_compiler(&mut self) -> Rc<Function> {
         self.emit_return();
+
+        self.try_set_start_address();
 
         if !self.parser.had_error {
             let chunk_name = if self.function.name().is_empty() {
@@ -303,11 +317,11 @@ impl Compiler {
         let old_function_type = self.function_type;
         let old_function = self.function.clone();
         self.function_type = function_type;
-        self.chunks.push(Chunk::new());
+        //self.chunks.push(Chunk::new());
 
         let function_name = self.lexer.get_lexeme(&self.parser.previous).to_string();
         self.function.set_name(function_name.clone());
-        self.function.set_chunk_index(self.chunks.len() - 1);
+        //self.function.set_chunk_index(self.chunks.len() - 1);
 
         self.begin_scope();
 
@@ -333,6 +347,8 @@ impl Compiler {
         );
         self.consume(TokenKind::LeftBrace, "Expect '{' before function body.");
 
+        let function_start_address = self.current_chunk().code.len();
+        self.function.set_start_address(function_start_address);
         // Parse in the body
         self.block();
 
@@ -578,12 +594,21 @@ impl Compiler {
         }
     }
 
+    fn try_set_start_address(&mut self) {
+        // This is the first code we see of the script type, set it as the start address
+        if !self.start_address_set && self.function_type == FunctionType::Function {
+            self.start_address = self.current_chunk().code.len();
+            self.start_address_set = true;
+        }
+    }
     fn declaration(&mut self) {
         if self.match_token(TokenKind::Fun) {
             self.function_declaration();
         } else if self.match_token(TokenKind::Var) {
+            //self.try_set_start_address();
             self.var_declaration();
         } else {
+            //self.try_set_start_address();
             self.statement();
         }
 
@@ -631,8 +656,15 @@ impl Compiler {
     }
 
     fn call(&mut self) {
+        // Emit the return address constant
+        //let constant_index = self.emit_constant(Value::Number(0.0));
+
         let argument_count = self.argument_list();
         self.emit_bytes(opcode::OP_CALL, argument_count);
+
+        let address = self.current_chunk().code.len();
+        // Patch the return address with the actual return address
+        //self.patch_constant(constant_index, Value::Number(address as f64))
     }
 
     fn literal(&mut self) {
@@ -763,6 +795,7 @@ impl Compiler {
 
     fn argument_list(&mut self) -> u8 {
         let mut argument_count = 0;
+
         if !self.check(TokenKind::RightParen) {
             // Continue parsing argument expressions until we see no more commas
             loop {
