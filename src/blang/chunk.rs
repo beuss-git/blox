@@ -108,10 +108,10 @@ impl Chunk {
     }
 
     /// Disassembles the chunk
-    pub fn disassemble_chunk(&self, name: &str) {
+    pub fn disassemble_chunk_from(&self, name: &str, start: usize) {
         println!("== {} ==", name);
 
-        let mut offset = 0;
+        let mut offset = start;
         while offset < self.code.len() {
             offset = self.disassemble_instruction(offset);
         }
