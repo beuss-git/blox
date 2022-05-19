@@ -1,5 +1,6 @@
 use core::fmt;
 use std::rc::Rc;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::Value;
 
@@ -37,5 +38,25 @@ impl fmt::Debug for NativeFunction {
 // Examples are invalid arity or invalid types
 
 pub fn clock(_: &[Value]) -> Value {
-    Value::Number(1234.0)
+    let start = SystemTime::now();
+    let since_epoch = start
+        .duration_since(UNIX_EPOCH)
+        .expect("Time went backwards");
+
+    // Return the number of seconds since the UNIX epoch with *some* accuracy
+    Value::Number(since_epoch.as_nanos() as f64 / 1_000_000_000.0)
+}
+
+pub fn test_func_single_arg(args: &[Value]) -> Value {
+    args[0].clone()
+}
+
+pub fn test_func_add_two_args(args: &[Value]) -> Value {
+    match args.len() {
+        2 => match (&args[0], &args[1]) {
+            (Value::Number(a), Value::Number(b)) => Value::Number(a + b),
+            _ => Value::Nil,
+        },
+        _ => Value::Nil,
+    }
 }

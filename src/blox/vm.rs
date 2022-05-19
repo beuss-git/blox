@@ -59,6 +59,14 @@ impl VM {
             pc: 0,
         };
         vm.define_native("clock", native_function::clock);
+        vm.define_native(
+            "test_func_single_arg",
+            native_function::test_func_single_arg,
+        );
+        vm.define_native(
+            "test_func_add_two_args",
+            native_function::test_func_add_two_args,
+        );
         vm
     }
     pub fn interpret(&mut self, source: String) -> InterpretResult {
@@ -1413,6 +1421,26 @@ print fib_non_recursive(n);
             print test(2, 3, 4);
         "#,
             Value::Number(9.0),
+        );
+    }
+
+    #[test]
+    fn test_native_function() {
+        let mut vm = new_vm();
+        expect_value(
+            &mut vm,
+            r#"
+            print test_func_single_arg(1234);
+            "#,
+            Value::Number(1234.0),
+        );
+
+        expect_value(
+            &mut vm,
+            r#"
+            print test_func_add_two_args(9, 8);
+            "#,
+            Value::Number(17.0),
         );
     }
 }
