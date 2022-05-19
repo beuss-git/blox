@@ -5,6 +5,7 @@ mod blox;
 mod argparse;
 use argparse::ArgParse;
 
+#[cfg(not(tarpaulin_include))]
 fn main() {
     /*
     This works very similiarly to python and a lot of other languages
