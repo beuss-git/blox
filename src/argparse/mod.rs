@@ -13,8 +13,8 @@ pub struct Arg {
 
 pub struct ArgParse {
     args: HashMap<String, Arg>,
-
     current: Option<String>,
+    non_bound: Vec<String>, // non-bound arguments
 }
 
 impl ArgParse {
@@ -22,7 +22,12 @@ impl ArgParse {
         Self {
             args: HashMap::new(),
             current: None,
+            non_bound: Vec::new(),
         }
+    }
+
+    pub fn get_non_bound(&self) -> &Vec<String> {
+        &self.non_bound
     }
 
     pub fn get(&self, key: &str) -> Option<String> {
@@ -53,8 +58,14 @@ impl ArgParse {
     fn internal_parse(&mut self, arguments: Vec<String>) -> bool {
         // Skip the program name
 
-        for mut i in 0..arguments.len() {
+        let mut i = 0;
+        while i < arguments.len() {
             let name = arguments[i].clone();
+
+            if !name.starts_with('-') {
+                // We are either 'out of sync' (which I don't handle) or this is a non-bound argument
+                self.non_bound.push(name.clone());
+            }
             match self.args.get_mut(&name) {
                 Some(arg) => {
                     // It was found
@@ -72,6 +83,7 @@ impl ArgParse {
                 }
                 None => {}
             }
+            i += 1;
         }
 
         if self.args.contains_key("help") {
@@ -108,6 +120,7 @@ impl ArgParse {
         self
     }
 
+    #[allow(dead_code)]
     pub fn help(&mut self, help: &str) -> &mut Self {
         if let Some(last) = &self.current {
             self.args.get_mut(last).unwrap().help = Some(help.to_string());
@@ -118,6 +131,7 @@ impl ArgParse {
         self
     }
 
+    #[allow(dead_code)]
     pub fn default(&mut self, value: String) -> &mut Self {
         if let Some(last) = &self.current {
             self.args.get_mut(last).unwrap().default = Some(value);
