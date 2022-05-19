@@ -262,7 +262,9 @@ impl Compiler {
             } else {
                 self.current_function.name()
             };
-            //chunk.disassemble_chunk_from(chunk_name, 0);
+            if self.output && chunk.code.len() - start_address > 0 {
+                chunk.disassemble_chunk_from(chunk_name, start_address);
+            }
             self.current_function.set_start_address(start_address);
         }
 
