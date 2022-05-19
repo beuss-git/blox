@@ -15,7 +15,7 @@ pub struct Compiler {
     current_function: Function,                   // Active function being built
     function_starts: Vec<(Lexer, Parser, usize)>, // Lexer and parser state for all function declaration starts as well as the function constant index
     function_type: FunctionType,
-    //chunk: RefMut<'a, Chunk>,
+    output: bool,
 
     // VERY HACKY: If true the compiler will commit the changes to the chunk
     // In order to keep functions in the same chunk and be able to declare functions anywhere I have to defer function compilation to the end of the script
@@ -34,7 +34,7 @@ impl Compiler {
             current_function: Function::new(),
             function_starts: Vec::new(),
             function_type: FunctionType::Script,
-            //chunk: chunk,
+            output: false,
             commit: true,
         };
 
@@ -67,25 +67,44 @@ impl Compiler {
             );
         }
     }
-    pub fn compile(&mut self, source: String, chunk: &mut Chunk) -> Option<Rc<Function>> {
+    pub fn compile(
+        &mut self,
+        source: String,
+        chunk: &mut Chunk,
+        output: bool,
+    ) -> Option<Rc<Function>> {
+        // Set output flag
+        self.output = output;
+
+        // Set the sourcecode for lexer
         self.lexer.set_source(source);
 
+        // Start of current function, used to later set the address for the function object
+        // this will change as the chunk grows through the REPL
         let start_address = chunk.code.len();
 
+        // Reset error flags
         self.parser.had_error = false;
         self.parser.panic_mode = false;
+
         // Consume the first token.
         self.advance();
 
+        // Parse declarations until EOF
         while !self.match_token(TokenKind::Eof) {
             self.declaration(chunk);
         }
 
+        // Get the compiled function
         let function = self.end_compiler(chunk, start_address);
-        //self.write_functions();
+
+        // Compile functions found in the script and append them to the end of the chunk
         self.compile_functions(chunk);
 
-        //self.disassemble(chunk);
+        if output {
+            // Print a newline after final disassembly output
+            println!();
+        }
 
         if self.parser.had_error {
             None
@@ -93,18 +112,6 @@ impl Compiler {
             Some(function)
         }
     }
-
-    pub fn disassemble(&self, chunk: &mut Chunk) {
-        chunk.disassemble_chunk_from("code", 0);
-    }
-
-    /*pub fn chunk(&self) -> &Chunk {
-        self.chunk.borrow()
-    }
-
-    pub fn chunk_mut(&mut self) -> &mut Chunk {
-        self.chunk.borrow_mut()
-    }*/
 
     // TODO: move to parser?
     fn error(&mut self, message: &str) {
