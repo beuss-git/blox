@@ -59,8 +59,9 @@ macro_rules! binary_op {
         ($self:ident, $value_type:ident, $op:tt) => {
             match ($self.pop(), $self.pop()) {
                 (Value::Number(b), Value::Number(a)) => $self.push(Value::$value_type(a $op b)),
-                _ => {
-                    $self.runtime_error("Operands must be numbers.");
+                (a,b) => {
+                    $self.runtime_error(format!("Operands must be numbers. Got {:?} and {:?}", a, b).as_str(),
+);
                     return InterpretResult::RuntimeError;
                 }
             }
