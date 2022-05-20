@@ -9,6 +9,7 @@ pub struct NativeFunction {
     name: Rc<str>,
     function: fn(&[Value]) -> Value,
 }
+
 impl NativeFunction {
     pub fn new(name: &str, function: fn(&[Value]) -> Value) -> Self {
         Self {
@@ -23,11 +24,13 @@ impl NativeFunction {
         (self.function)(args)
     }
 }
+
 impl PartialEq for NativeFunction {
     fn eq(&self, other: &Self) -> bool {
         self.name == other.name
     }
 }
+
 impl fmt::Debug for NativeFunction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "<native {}>", self.name)
@@ -37,6 +40,7 @@ impl fmt::Debug for NativeFunction {
 // TODO: These should really be able to report errors to the VM
 // Examples are invalid arity or invalid types
 
+// Native clock function
 pub fn clock(_: &[Value]) -> Value {
     let start = SystemTime::now();
     let since_epoch = start
