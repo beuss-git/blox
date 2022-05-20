@@ -399,6 +399,9 @@ impl VM {
                 // Call the native function
                 let result = native.call(&args);
 
+                // Remove the called function from the stack too
+                self.pop();
+
                 self.push(result);
 
                 true
