@@ -67,7 +67,7 @@ impl Chunk {
         self.code[offset]
     }
 
-    /// Adds byte to the chunk
+    // Adds byte to the chunk
     pub fn write_byte(&mut self, byte: u8, line: usize) {
         // RLE compression of line data
         if self.line_data.len() == line + 1 {
@@ -95,7 +95,7 @@ impl Chunk {
         self.constants.get_value(index)
     }
 
-    /// Adds constant into our chunk and returns the index of the constant
+    // Adds constant into our chunk and returns the index of the constant
     pub fn add_constant(&mut self, value: Value) -> usize {
         self.constants.add_value(value);
 
@@ -109,7 +109,7 @@ impl Chunk {
         self.constants.get_value(index)
     }
 
-    /// Disassembles the chunk
+    // Disassembles the chunk
     #[cfg(not(tarpaulin_include))]
     pub fn disassemble_chunk_from(&self, name: &str, start: usize) {
         println!("== {} ==", name);
@@ -120,7 +120,7 @@ impl Chunk {
         }
     }
 
-    /// Disassembles the instruction at the given offset
+    // Disassembles the instruction at the given offset
     #[cfg(not(tarpaulin_include))]
     pub fn disassemble_instruction(&self, offset: usize) -> usize {
         // Print out the instruction offset
