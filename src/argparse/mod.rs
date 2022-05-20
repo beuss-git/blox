@@ -5,7 +5,6 @@ pub struct Arg {
     name: String,
     alternative: Option<String>,
     value: Option<String>,
-    required: bool,
     default: Option<String>,
     help: Option<String>,
     found: bool,
@@ -71,9 +70,6 @@ impl ArgParse {
                 arg_str.push_str(" (--");
                 arg_str.push_str(arg.alternative.as_ref().unwrap());
                 arg_str.push(')');
-            }
-            if arg.required {
-                arg_str.push_str(" (required)");
             }
             if arg.default.is_some() {
                 arg_str.push_str(" (default: ");
@@ -142,7 +138,6 @@ impl ArgParse {
                 name: name.to_string(),
                 alternative: None,
                 value: None,
-                required: false,
                 default: None,
                 help: None,
                 found: false,
