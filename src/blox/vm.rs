@@ -179,17 +179,14 @@ impl VM {
                 opcode::OP_SUBTRACT => binary_op!(self, Number, -),
                 opcode::OP_MULTIPLY => binary_op!(self, Number, *),
                 opcode::OP_DIVIDE => binary_op!(self, Number, /),
-                opcode::OP_NOT => match self.value_stack.pop() {
-                    Some(x) => self.push(Value::Boolean(x.is_falsey())),
+                opcode::OP_NOT => {
+                    let val = self.pop();
+                    self.push(Value::Boolean(val.is_falsy()));
+                }
+                opcode::OP_NEGATE => match self.pop() {
+                    Value::Number(n) => self.push(Value::Number(-n)),
                     _ => {
-                        self.runtime_error("Stack is empty.");
-                        return InterpretResult::RuntimeError;
-                    }
-                },
-                opcode::OP_NEGATE => match self.value_stack.pop() {
-                    Some(Value::Number(n)) => self.push(Value::Number(-n)),
-                    _ => {
-                        self.runtime_error("Stack is empty");
+                        self.runtime_error("Operand must be a number.");
                         return InterpretResult::RuntimeError;
                     }
                 },
@@ -208,7 +205,7 @@ impl VM {
                 }
                 opcode::OP_JUMP_IF_FALSE => {
                     let offset = self.read_short();
-                    if self.peek().is_falsey() {
+                    if self.peek().is_falsy() {
                         self.pc += offset as usize;
                     }
                     // Else keep on churning
