@@ -1,9 +1,11 @@
 default:
   tags: 
     - blang
+  image:
+    - docker:stable
 
 test-all:
   stage: test
   script:
-    - docker run --security-opt seccomp=unconfined -v "/cache:/volume" xd009642/tarpaulin
+    - docker run --security-opt seccomp=unconfined -v "${PWD}:/volume" xd009642/tarpaulin
 
