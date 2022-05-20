@@ -1,8 +1,7 @@
 default:
   tags: 
     - blang
-  image:
-    - docker:stable
+  image: docker:stable
 
 test-all:
   stage: test
