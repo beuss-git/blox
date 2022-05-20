@@ -140,11 +140,11 @@ impl VM {
 
         loop {
             // Print debug data if enabled
-            if self.settings.trace_execution {
-                self.chunk.disassemble_instruction(self.pc);
-            }
             if self.settings.trace_stack {
                 self.print_value_stack();
+            }
+            if self.settings.trace_execution {
+                self.chunk.disassemble_instruction(self.pc);
             }
             if self.settings.frame_info {
                 println!("Frame count: {}", self.frame_stack.len());
