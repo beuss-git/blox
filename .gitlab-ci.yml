@@ -8,3 +8,7 @@ test-all:
   script:
     - cargo tarpaulin
   coverage: '/^\d+.\d+% coverage/'
+  artifacts:
+    reports:
+      cobertura:
+        - cobertura.xml
