@@ -5,6 +5,6 @@ default:
 test-all:
   stage: test
   script:
-    - docker run --security-opt seccomp=unconfined -v "${PWD}:/volume" xd009642/tarpaulin
+    - docker run --security-opt seccomp=unconfined -v "/builds:/volume" xd009642/tarpaulin
   coverage: '/^\d+.\d+% coverage/'
 
