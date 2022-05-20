@@ -24,7 +24,7 @@ impl Default for Value {
 
 impl Value {
     // Checks if the value is falsey
-    pub fn is_falsey(&self) -> bool {
+    pub fn is_falsy(&self) -> bool {
         match self {
             Value::Nil => true,
             Value::Boolean(b) => !b,
@@ -106,9 +106,9 @@ mod tests {
 
     #[test]
     fn test_is_falsey() {
-        assert_eq!(Value::Boolean(true).is_falsey(), false);
-        assert_eq!(Value::Boolean(false).is_falsey(), true);
-        assert_eq!(Value::Nil.is_falsey(), true);
-        assert_eq!(Value::Number(1.0).is_falsey(), false);
+        assert_eq!(Value::Boolean(true).is_falsy(), false);
+        assert_eq!(Value::Boolean(false).is_falsy(), true);
+        assert_eq!(Value::Nil.is_falsy(), true);
+        assert_eq!(Value::Number(1.0).is_falsy(), false);
     }
 }
