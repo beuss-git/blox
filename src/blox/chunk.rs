@@ -10,15 +10,15 @@ pub struct Chunk {
     line_data: Vec<u8>, // Lets assume that a line can't have more than 255 bytes
 }
 
-/// Prints the instruction and returns the offset to the next instruction.
 #[cfg(not(tarpaulin_include))]
+// Prints the instruction and returns the offset to the next instruction.
 fn simple_instruction(name: &str, chunk: &Chunk, offset: usize) -> usize {
     println!("{}: {}", chunk.get_line(offset), name);
     offset + 1
 }
 
-/// Prints the instruction and returns the offset to the next instruction.
 #[cfg(not(tarpaulin_include))]
+// Prints the instruction and returns the offset to the next instruction.
 fn constant_instruction(name: &str, chunk: &Chunk, offset: usize) -> usize {
     let slot = chunk.read_chunk(offset + 1);
     //print!("{}: {} {}, ", chunk.get_line(offset), name, constant_index);
@@ -29,6 +29,7 @@ fn constant_instruction(name: &str, chunk: &Chunk, offset: usize) -> usize {
 }
 
 #[cfg(not(tarpaulin_include))]
+// Prints the instruction and returns the offset to the next instruction.
 fn byte_instruction(name: &str, chunk: &Chunk, offset: usize) -> usize {
     let slot = chunk.read_chunk(offset + 1);
     println!("{}: {} {}", chunk.get_line(offset), name, slot);
@@ -36,6 +37,7 @@ fn byte_instruction(name: &str, chunk: &Chunk, offset: usize) -> usize {
 }
 
 #[cfg(not(tarpaulin_include))]
+// Prints the instruction and returns the offset to the next instruction.
 fn jump_instruction(name: &str, positive: bool, chunk: &Chunk, offset: usize) -> usize {
     let offset_jump: u16 =
         ((chunk.read_chunk(offset + 1) as u16) << 8) | chunk.read_chunk(offset + 2) as u16;
