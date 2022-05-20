@@ -1,5 +1,4 @@
 default:
-  image: rustdocker/rust:nightly
   tags: 
     - blang
 
@@ -11,4 +10,6 @@ build-job:
 test-all:
   stage: test
   script:
-    - /root/.cargo/bin/cargo test
+    - docker run --security-opt seccomp=unconfined -v "${PWD}:/volume" xd009642/tarpaulin
+  coverage: '/^\d+.\d+% coverage/'
+
