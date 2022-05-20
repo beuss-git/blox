@@ -2,11 +2,6 @@ default:
   tags: 
     - blang
 
-build-job:
-  stage: build
-  script:
-    - /root/.cargo/bin/cargo build --release
-
 test-all:
   stage: test
   script:
