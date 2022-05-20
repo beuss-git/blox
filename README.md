@@ -3,14 +3,11 @@
 [![pipeline status](https://git.gvk.idi.ntnu.no/course/prog2006/as/benjabj/individual-project/badges/master/pipeline.svg)](https://git.gvk.idi.ntnu.no/course/prog2006/as/benjabj/individual-project/-/commits/master)
 [![coverage report](https://git.gvk.idi.ntnu.no/course/prog2006/as/benjabj/individual-project/badges/master/coverage.svg)](https://git.gvk.idi.ntnu.no/course/prog2006/as/benjabj/individual-project/-/commits/master)
 
-This is a rust implementation of the lox language by Rober Nystrom.
-
-I followed his book **Crafting Interpreters** which can be found here https://craftinginterpreters.com/
+This is a rust implementation of the lox language by Rober Nystrom, introduced in his book [Crafting Interpreters](https://craftinginterpreters.com/)
 
 It only covers the book up to the chapter on **Calls and Functions** due to the lack of time and prioritization on tests and documentation.
 
 The implementation features a **bytecode compiler** and a stack-based **interpreter**.
-
 
 ## Dependencies
 - rust
@@ -50,6 +47,8 @@ Try running the following command:
 print "Hello, World!";
 ```
 It should print "Hello, World!" to the console.
+
+If you just pass in a file name it will compile it and execute it.
 
 Run it with **--help** to see the available arguments.
 
@@ -137,12 +136,16 @@ It supports the following logical binary operators:
 ``` lua
 print true and true;
 print true and false;
+print false and false;
 print true or true;
 print true or false;
+print false or false;
 
 // Prints
 true
 false
+false
+true
 true
 false
 ```
@@ -303,4 +306,9 @@ print a;
 3
 ```
 
-## Implementation features
+## References
+- [Crafting Interpreters](https://craftinginterpreters.com/)
+- [Rust Book](https://doc.rust-lang.org/book/)
+- [Rust std](https://doc.rust-lang.org/std/)
+- [Darksecond Lox](https://github.com/Darksecond/lox)
+- [x86 instruction set](https://c9x.me/x86/)
