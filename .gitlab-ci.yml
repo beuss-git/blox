@@ -1,10 +1,10 @@
 default:
   tags: 
     - blang
-  image: docker:stable
+  image: xd009642/tarpaulin
 
 test-all:
   stage: test
   script:
-    - docker run --security-opt seccomp=unconfined -v "${PWD}:/volume" xd009642/tarpaulin
-
+    - cargo tarpaulin
+  coverage: '/^\d+.\d+% coverage/'
