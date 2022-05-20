@@ -52,6 +52,8 @@ If you just pass in a file name it will compile it and execute it.
 
 Run it with **--help** to see the available arguments.
 
+You can exit by typing **exit**
+
 
 ## Tests
 ```
