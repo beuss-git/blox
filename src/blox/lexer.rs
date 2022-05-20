@@ -7,11 +7,14 @@ pub struct Lexer {
     pub line: usize,
     keywords: HashMap<&'static str, TokenKind>,
 }
+
 // TODO: move this
+// Checks if the character is a letter or underscore
 fn is_alpha(c: char) -> bool {
     c.is_alphabetic() || c == '_'
 }
 
+// Check if the character is a digit
 fn is_digit(c: char) -> bool {
     c.is_digit(10)
 }
@@ -51,10 +54,12 @@ impl Lexer {
         self.source = source;
     }
 
+    // Gets the lexeme for the token from the source
     pub fn get_lexeme(&self, token: &Token) -> &str {
         &self.source[token.start..token.start + token.length]
     }
 
+    // Gets the next token in the source
     pub fn scan_token(&mut self) -> Result<Token, LexerError> {
         // Advance to the next valid character
         self.skip_whitespace();
@@ -83,6 +88,7 @@ impl Lexer {
         }
     }
 
+    // Matches the current character to a token kind
     fn match_token(&mut self, c: char) -> Result<TokenKind, LexerError> {
         match c {
             '(' => Ok(TokenKind::LeftParen),
@@ -113,6 +119,8 @@ impl Lexer {
         }
     }
 
+    // Matches a given character and returns the lhs token kind if the character matches-
+    // otherwise returns the rhs token kind
     fn match_either(&mut self, c: char, a: TokenKind, b: TokenKind) -> TokenKind {
         if self.match_char(c) {
             a
@@ -121,6 +129,7 @@ impl Lexer {
         }
     }
 
+    // Creates a new token at the current position
     fn make_token(&self, token_type: TokenKind) -> Token {
         let mut token = Token::new(token_type);
         token.start = self.start;
@@ -130,12 +139,15 @@ impl Lexer {
         token
     }
 
+    // Advances the current position past the comment
     fn skip_comment(&mut self) {
         self.advance();
         while self.peek() != '\n' && !self.is_at_end() {
             self.advance();
         }
     }
+
+    // Advances the current position past whitespace
     fn skip_whitespace(&mut self) {
         loop {
             match self.peek() {
@@ -161,6 +173,7 @@ impl Lexer {
         }
     }
 
+    // Scans an identifier and returns the token
     fn identifier(&mut self) -> Token {
         while is_alpha(self.peek()) || is_digit(self.peek()) {
             self.advance();
@@ -172,6 +185,7 @@ impl Lexer {
         }
     }
 
+    // Scans a string and returns the token
     fn string(&mut self) -> Result<Token, LexerError> {
         // Opening quote
         while self.peek() != '"' && !self.is_at_end() {
@@ -192,6 +206,7 @@ impl Lexer {
         Ok(self.make_token(TokenKind::String))
     }
 
+    // Scans a number and returns the token
     fn number(&mut self) -> Token {
         while is_digit(self.peek()) {
             self.advance();
@@ -208,6 +223,7 @@ impl Lexer {
         self.make_token(TokenKind::Number)
     }
 
+    // Gets the current character
     fn get_char(&self, index: usize) -> char {
         self.source
             .chars()
@@ -215,6 +231,7 @@ impl Lexer {
             .expect("Failed to get character")
     }
 
+    // Peek the next character
     fn peek_next(&self) -> char {
         if self.current + 1 >= self.source.len() {
             return '\0';
@@ -222,17 +239,21 @@ impl Lexer {
         self.get_char(self.current + 1)
     }
 
+    // Peeks the current character
     fn peek(&self) -> char {
         if self.is_at_end() {
             return '\0';
         }
         self.get_char(self.current)
     }
+
+    // Advances the current position by one character and returns it
     fn advance(&mut self) -> char {
         self.current += 1;
         self.get_char(self.current - 1)
     }
 
+    // Checks if the current position is the expected character
     fn match_char(&mut self, expected: char) -> bool {
         if self.is_at_end() {
             return false;
@@ -246,6 +267,7 @@ impl Lexer {
         true
     }
 
+    // Checks if the current position is at the end of the source
     fn is_at_end(&self) -> bool {
         self.current >= self.source.len()
     }

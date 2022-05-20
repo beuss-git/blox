@@ -54,6 +54,7 @@ pub struct VM {
     settings: Settings,
 }
 
+// Macro to execute a binary operation on two numbers
 macro_rules! binary_op {
         ($self:ident, $value_type:ident, $op:tt) => {
             match ($self.pop(), $self.pop()) {
@@ -65,6 +66,7 @@ macro_rules! binary_op {
             }
         };
 }
+
 impl VM {
     pub fn new(settings: Settings) -> Self {
         let mut vm = Self {
@@ -76,7 +78,10 @@ impl VM {
             pc: 0,
             settings,
         };
+        // Sets up the built-in native functions
         vm.define_native("clock", native_function::clock);
+
+        // These are just used in tests
         vm.define_native(
             "test_func_single_arg",
             native_function::test_func_single_arg,
@@ -87,6 +92,8 @@ impl VM {
         );
         vm
     }
+
+    // Compiles and executes the given sourcecode
     pub fn interpret(&mut self, source: String) -> InterpretResult {
         let mut compiler = Compiler::new();
         let compile_result = compiler.compile(source, &mut self.chunk, self.settings.disassembly);
@@ -105,6 +112,7 @@ impl VM {
         }
     }
 
+    // Returns the current frame
     fn frame(&self) -> &CallFrame {
         //let frame_count = self.frame_count;
         let frame_count = self.frame_stack.len();
@@ -112,19 +120,25 @@ impl VM {
         &self.frame_stack[frame_count - 1]
     }
 
+    // Returns a value from a given slot in the current frame
     fn get_value(&mut self, slot: usize) -> &Value {
         let absolute_slot = self.frame().slot_offset + slot;
         &self.value_stack[absolute_slot]
     }
+
+    // Sets a value in a given slot in the current frame
     fn set_value(&mut self, slot: usize, value: &Value) {
         let absolute_slot = self.frame().slot_offset + slot;
         self.value_stack[absolute_slot] = value.clone();
     }
+
+    // Runs the execution loop
     fn run(&mut self) -> InterpretResult {
         // Set none (for testing purposes), we didn't print anything for the context
         self.last_printed = None;
 
         loop {
+            // Print debug data if enabled
             if self.settings.trace_execution {
                 self.chunk.disassemble_instruction(self.pc);
             }
@@ -140,7 +154,6 @@ impl VM {
             match self.read_byte() {
                 opcode::OP_GREATER => binary_op!(self, Boolean, >),
                 opcode::OP_LESS => binary_op!(self, Boolean, <),
-                //opcode::OP_ADD => binary_op!(self, Number, +),
                 opcode::OP_MODULO => binary_op!(self, Number, %),
                 opcode::OP_ADD => match (self.pop(), self.pop()) {
                     (Value::Number(b), Value::Number(a)) => self.push(Value::Number(a + b)),
@@ -188,17 +201,14 @@ impl VM {
                 opcode::OP_JUMP_BACK => {
                     let offset = self.read_short();
                     self.pc -= offset as usize;
-                    //self.frame_mut().dec_pc(offset as usize);
                 }
                 opcode::OP_JUMP => {
                     let offset = self.read_short();
                     self.pc += offset as usize;
-                    //self.frame_mut().add_pc(offset as usize);
                 }
                 opcode::OP_JUMP_IF_FALSE => {
                     let offset = self.read_short();
                     if self.peek().is_falsey() {
-                        //self.frame_mut().add_pc(offset as usize);
                         self.pc += offset as usize;
                     }
                     // Else keep on churning
@@ -206,14 +216,13 @@ impl VM {
                 opcode::OP_CALL => {
                     let arg_count = self.read_byte() as usize;
                     let function = self.peek_n(arg_count).clone();
-                    //self.push(Value::Number(self.pc as f64));
                     if !self.call_function(function, arg_count as u8) {
                         return InterpretResult::RuntimeError;
                     }
                 }
                 opcode::OP_RETURN => {
-                    //return InterpretResult::Ok;
                     let result = self.pop();
+
                     // Gather all frame data before popping it
                     let slot = self.frame().slot_offset;
                     let return_addr = self.frame().return_addr;
@@ -225,10 +234,14 @@ impl VM {
                         return InterpretResult::Ok;
                     }
 
+                    // We only want to keep values up to the slot index
+                    // everything past that belonged to the popped frame
                     self.value_stack.truncate(slot);
 
+                    // Sets the program counter to the return address of the function
                     self.pc = return_addr;
 
+                    // Add the result to the stack
                     self.push(result);
                 }
                 opcode::OP_CONSTANT => {
@@ -247,11 +260,13 @@ impl VM {
                     let slot = self.read_byte() as usize;
 
                     let value = self.peek().clone();
+
                     // Set the value via the current frame
                     self.set_value(slot, &value);
                 }
                 opcode::OP_GET_LOCAL => {
                     let slot = self.read_byte() as usize;
+
                     // Get the value via the current frame
                     let value = self.get_value(slot).clone();
                     self.push(value);
@@ -290,8 +305,6 @@ impl VM {
                 }
                 opcode::OP_SET_GLOBAL => {
                     let name = self.read_constant();
-                    // Possible to get an iter instead of checking and then inserting?
-                    // Can also just insert, check ret value and return error if it is not None, but make sure to delete value in there
                     match name {
                         Value::String(str) => {
                             let value = self.peek().clone();
@@ -321,15 +334,20 @@ impl VM {
         }
     }
 
+    // Peeks a value from the top of the stack n places down
     fn peek_n(&self, n: usize) -> &Value {
         let stack_len = self.value_stack.len();
         &self.value_stack[stack_len - 1 - n]
     }
+
+    // Peeks the top of the stack
     fn peek(&self) -> &Value {
         self.value_stack.last().expect("Stack empty")
     }
 
+    // Calls a given function
     fn call(&mut self, function: &Rc<Function>, arg_count: u8) -> bool {
+        // Check arity
         if arg_count as usize != function.arity() {
             self.runtime_error(&format!(
                 "Expected {} arguments, but got {}.",
@@ -338,21 +356,28 @@ impl VM {
             ));
             return false;
         }
+
+        // Check if too many frames
         if self.frame_stack.len() == MAX_FRAMES {
             self.runtime_error("Stack overflow.");
             return false;
         }
-        // Insert a new callframe
+
+        // Insert a new callframe for the function
         let frame = CallFrame::new(
             function.clone(),
             self.value_stack.len() - arg_count as usize - 1,
             self.pc,
         );
-        self.pc = function.start_address();
         self.frame_stack.push(frame);
+
+        // Set the program counter to the address of the function
+        self.pc = function.start_address();
+
         true
     }
 
+    // Prints the stack trace
     fn stack_trace(&self) {
         for frame in self.frame_stack.iter().rev() {
             let chunk = &self.chunk;
@@ -364,10 +389,13 @@ impl VM {
             );
         }
     }
-    // Is it proper to use Result like this? Are there better ways?
+
+    // Calls a given function value, with the given number of arguments
     fn call_function(&mut self, function: Value, arg_count: u8) -> bool {
         match &function {
+            // Handle compiled function
             Value::Function(f) => self.call(f, arg_count),
+            // Handle native function
             Value::NativeFunction(native) => {
                 // Pop the arguments off the stack
                 let args = self.pop_n(arg_count as usize);
@@ -385,42 +413,50 @@ impl VM {
         }
     }
 
+    // Reads a single byte from the chunk
     fn read_byte(&mut self) -> u8 {
-        //self.frame_mut().add_pc(1);
         self.pc += 1;
         self.chunk.read_chunk(self.pc - 1)
-        ////self.frame().byte_relative(-1)
     }
 
+    // Reads a short (2 bytes) from the chunk
     fn read_short(&mut self) -> u16 {
-        //self.frame_mut().add_pc(2);
         self.pc += 2;
-        //((self.frame().byte_relative(-2) as u16) << 8) | (self.frame().byte_relative(-1) as u16)
         ((self.chunk.read_chunk(self.pc - 2) as u16) << 8)
             | (self.chunk.read_chunk(self.pc - 1) as u16)
-        //((self.frame().byte_relative(-2) as u16) << 8) | (self.frame().byte_relative(-1) as u16)
     }
+
+    // Reads a constant from the chunk
     fn read_constant(&mut self) -> Value {
         let constant_index = self.read_byte();
         //self.frame().get_value(constant_index as usize)
         self.chunk.get_value(constant_index as usize)
     }
+
+    // Prints the value stack
     fn print_value_stack(&self) {
         for value in self.value_stack.iter() {
             print!("[ {} ]", value);
         }
         println!();
     }
+
+    // Pushes a value onto the stack
     fn push(&mut self, value: Value) {
         self.value_stack.push(value);
     }
+
+    // Checks if the value stack is empty
     fn stack_empty(&self) -> bool {
         self.value_stack.is_empty()
     }
+
+    // Pops a value off the stack and returns it
     fn pop(&mut self) -> Value {
         self.value_stack.pop().expect("Stack is empty")
     }
 
+    // Pops n values off the stack and returns them
     fn pop_n(&mut self, n: usize) -> Vec<Value> {
         let mut values = Vec::with_capacity(n);
         for _ in 0..n {
@@ -429,40 +465,60 @@ impl VM {
         values
     }
 
-    /// Resets the stack to the default state with reserved value
+    // Resets the stack to the default state with reserved value
     fn reset_stack(&mut self) {
         //self.value_stack.truncate(0);
         self.value_stack.clear();
         self.frame_stack.clear();
     }
 
+    // Handle runtime error and print debug info
     fn runtime_error(&mut self, message: &str) {
+        // Print the line and the given message
         println!("[line {}] {}", self.chunk.get_line(self.pc), message);
-        self.chunk.disassemble_instruction(self.pc);
-        //self.frame().print_line(message);
 
+        // Disassemble the instruction
+        self.chunk.disassemble_instruction(self.pc);
+
+        // Print stack trace
         self.stack_trace();
 
         // Reset the stack to default state
         self.reset_stack();
     }
 
+    // Defines a native function
     fn define_native(&mut self, name: &str, function: fn(&[Value]) -> Value) {
+        // Create a new native function
         let native_function = NativeFunction::new(name, function);
-        let name_ptr = Rc::from(name);
-        self.push(Value::String(name_ptr));
-        self.push(Value::NativeFunction(Rc::from(native_function.clone())));
 
+        // The pushing and popping is for a future GC implementation
+        // so it knows that it should not collect the function as long as they are in use
+
+        // TODO: uncomment for GC
+        /*
+        let name_ptr = Rc::from(name);
+        // Push the native function name to the stack
+        self.push(Value::String(name_ptr));
+        // Push the native function itself to the stack
+        self.push(Value::NativeFunction(Rc::from(native_function.clone())));
+        */
+
+        // Insert the native function into the global scope
         self.globals.insert(
             Rc::from(name),
             Value::NativeFunction(Rc::from(native_function)),
         );
 
+        // TODO: uncomment for GC
+        /*
         self.pop();
         self.pop();
+        */
     }
 
     #[allow(dead_code)]
+    // Returns the last printed value (for testing)
     fn last_value(&self) -> Option<Value> {
         self.last_printed.clone()
     }

@@ -4,6 +4,7 @@ pub struct Locals {
     locals_count: u8,
     scope_depth: usize,
 }
+
 impl Locals {
     pub fn new() -> Self {
         Self {
@@ -22,7 +23,7 @@ impl Locals {
         self.scope_depth += 1;
     }
 
-    /// Returns the amount of locals removed from the stack.
+    // Returns the amount of locals removed from the stack.
     pub fn end_scope(&mut self) -> usize {
         self.scope_depth -= 1;
 
@@ -39,7 +40,7 @@ impl Locals {
         }
         (previous_count - self.locals_count) as usize
     }
-    /// Declares a local variable
+    // Declares a local variable
     pub fn declare(&mut self, name: String) {
         self.stack[self.locals_count as usize] = Local {
             name,
@@ -49,7 +50,7 @@ impl Locals {
         self.locals_count += 1;
     }
 
-    /// Marks the local variable as initialized
+    // Marks the local variable as initialized
     pub fn define(&mut self) {
         self.stack[self.locals_count as usize - 1].initialized = true;
         self.stack[self.locals_count as usize - 1].depth = self.scope_depth;
@@ -62,6 +63,8 @@ impl Locals {
             .rev()
             .any(|local| local.depth == self.scope_depth && local.name == name)
     }
+
+    // Returns the index of the first local variable with the given name, scanning from the top
     pub fn index_of(&self, name: &str) -> Option<(usize, bool)> {
         // Start with the most recent local and work backwards
         for i in (0..self.locals_count).rev() {
@@ -74,6 +77,7 @@ impl Locals {
     }
 
     #[allow(dead_code)]
+    // Prints the locals
     pub fn print(&self) {
         for i in 0..self.locals_count {
             let local = &self.stack[i as usize];
