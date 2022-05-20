@@ -11,9 +11,9 @@ use super::{chunk::Chunk, lexer::Lexer, lexer::TokenKind, locals::Locals, parser
 pub struct Compiler {
     parser: Parser,
     lexer: Lexer,
-    locals: Locals,                               // All locals
-    current_function: Function,                   // Active function being built
-    function_starts: Vec<(Lexer, Parser, usize)>, // Lexer and parser state for all function declaration starts as well as the function constant index
+    locals: Locals,                                     // All locals
+    current_function: Function,                         // Active function being built
+    function_start_states: Vec<(Lexer, Parser, usize)>, // Lexer and parser state for all function declaration starts as well as the function constant index
     function_type: FunctionType,
     output: bool,
 
@@ -26,13 +26,14 @@ pub struct Compiler {
 }
 
 impl Compiler {
+    // Create a new compiler
     pub fn new() -> Self {
         let mut compiler = Self {
             parser: Parser::new(),
             lexer: Lexer::new(),
             locals: Locals::new(),
             current_function: Function::new(),
-            function_starts: Vec::new(),
+            function_start_states: Vec::new(),
             function_type: FunctionType::Script,
             output: false,
             commit: true,
@@ -42,18 +43,31 @@ impl Compiler {
         compiler
     }
 
+    // Compiles all functions in the source
     fn compile_functions(&mut self, chunk: &mut Chunk) {
-        while !self.function_starts.is_empty() {
-            let function_start = self.function_starts.pop().unwrap();
+        // Iterate all the function start states (a snapshot taken at every function declaration)
+        while !self.function_start_states.is_empty() {
+            // Pop the last function start state
+            let function_start = self.function_start_states.pop().unwrap();
+
+            // Save the start address of this function
             let start_address = chunk.code.len();
 
+            // Compile the function using the stored state
             self.compile_function(chunk, (function_start.0, function_start.1));
 
+            // Look up the function constant index
             let function_constant_index = function_start.2;
+            // Get the actual function through the constant index
             let function = chunk.get_constant(function_constant_index as usize);
 
+            // The function constant was emitted on the original compiler pass, but we didn't know where its start address would be
+            // so replace the constant now that we know its actual start address
             let mut new_function = Function::new();
             if let Value::Function(f) = function {
+                // My rust skills are really showing here, I made an early choice to make it Rc
+                // so I can't just mutate it, I need to replace it
+
                 // A poor man's Rc clone :)
                 new_function.set_arity(f.arity());
                 new_function.set_chunk_index(f.chunk_index());
@@ -61,17 +75,20 @@ impl Compiler {
                 new_function.set_start_address(start_address);
             }
 
+            // Patch it with the new function data (only really new start address)
             chunk.patch_constant(
                 function_constant_index as usize,
                 Value::Function(Rc::from(new_function)),
             );
         }
     }
+
+    // Compile the given source code
     pub fn compile(
         &mut self,
-        source: String,
-        chunk: &mut Chunk,
-        output: bool,
+        source: String,    // The source code to compile
+        chunk: &mut Chunk, // The chunk to compile into
+        output: bool,      // If true the compiler will output the compiled code
     ) -> Option<Rc<Function>> {
         // Set output flag
         self.output = output;
@@ -113,15 +130,17 @@ impl Compiler {
         }
     }
 
-    // TODO: move to parser?
+    // Outputs error message at the previous token and sets the had_error flag
     fn error(&mut self, message: &str) {
         self.error_at(self.parser.previous, self.parser.previous.line, message);
     }
 
+    // Outputs error message at the current token and sets the had_error flag
     fn error_at_current(&mut self, message: &str) {
         self.error_at(self.parser.current, self.parser.current.line, message);
     }
 
+    // Outputs error message at the given token and sets the had_error flag
     fn error_at(&mut self, token: Token, line: usize, message: &str) {
         if self.parser.panic_mode {
             return;
@@ -131,6 +150,8 @@ impl Compiler {
         println!("[line {}] Error: at '{}' {}", line, lexeme, message);
         self.parser.had_error = true;
     }
+
+    // Advances the lexer and parser by one token
     fn advance(&mut self) {
         self.parser.previous = self.parser.current;
         loop {
@@ -145,6 +166,8 @@ impl Compiler {
             }
         }
     }
+    // Checks if the current token matches the given kind and consumes it
+    // If the token doesn't match it will print an error
     fn consume(&mut self, kind: TokenKind, message: &str) {
         if self.parser.current.kind == kind {
             self.advance();
@@ -153,10 +176,13 @@ impl Compiler {
         self.error_at_current(message);
     }
 
+    // Checks if the current token matches the given kind
     fn check(&mut self, kind: TokenKind) -> bool {
         self.parser.current.kind == kind
     }
 
+    // Checks if the current token matches the given kind
+    // If it doesn't it will return false, if it does it will consume the token and return true
     fn match_token(&mut self, kind: TokenKind) -> bool {
         if !self.check(kind) {
             return false;
@@ -165,6 +191,7 @@ impl Compiler {
         true
     }
 
+    // Writes a single byte into the chunk
     fn emit_byte(&mut self, chunk: &mut Chunk, byte: u8) {
         if !self.commit {
             return;
@@ -174,11 +201,13 @@ impl Compiler {
         chunk.write_byte(byte, line_num);
     }
 
+    // Writes two bytes into the chunk
     fn emit_bytes(&mut self, chunk: &mut Chunk, byte1: u8, byte2: u8) {
         self.emit_byte(chunk, byte1);
         self.emit_byte(chunk, byte2);
     }
 
+    // Writes a JUMP_BACK instruction into the chunk
     fn emit_jump_back(&mut self, chunk: &mut Chunk, to: usize) {
         self.emit_byte(chunk, opcode::OP_JUMP_BACK);
 
@@ -193,16 +222,22 @@ impl Compiler {
         self.emit_byte(chunk, offset as u8);
     }
 
+    // Writes a given jump instruction into the chunk
     fn emit_jump(&mut self, chunk: &mut Chunk, instruction: u8) -> usize {
         if !self.commit {
             return 0;
         }
         self.emit_byte(chunk, instruction);
+
+        // Encode offset into the 16-bit jump instruction
+        // We currently emit a dummy address to be patched once we know how far to jump
         self.emit_bytes(chunk, 0xff, 0xff);
+
         // Return the offset of the jump instruction
         chunk.code.len() - 2
     }
 
+    // Writes nil and a return instruction into the chunk
     fn emit_return(&mut self, chunk: &mut Chunk) {
         if !self.commit {
             return;
@@ -212,6 +247,7 @@ impl Compiler {
         self.emit_byte(chunk, opcode::OP_RETURN);
     }
 
+    // Adds a constant to the chunk and returns its index
     fn make_constant(&mut self, chunk: &mut Chunk, value: Value) -> u8 {
         if !self.commit {
             return 0;
@@ -223,6 +259,8 @@ impl Compiler {
         }
         constant_index as u8
     }
+
+    // Adds a constant to the chunk and writes it to the chunk code
     fn emit_constant(&mut self, chunk: &mut Chunk, constant: Value) -> u8 {
         if !self.commit {
             return 0;
@@ -232,14 +270,7 @@ impl Compiler {
         constant_index
     }
 
-    #[allow(dead_code)]
-    fn patch_constant(&mut self, chunk: &mut Chunk, constant_index: u8, value: Value) {
-        if !self.commit {
-            return;
-        }
-        chunk.patch_constant(constant_index as usize, value);
-    }
-
+    // Patches a jump instruction address to the current code position
     fn patch_jump(&mut self, chunk: &mut Chunk, offset: usize) {
         if !self.commit {
             return;
@@ -260,32 +291,43 @@ impl Compiler {
         self.emit_return(chunk);
 
         if !self.parser.had_error {
+            // Get the chunk name from the function name
             let chunk_name = if self.current_function.name().is_empty() {
                 "<script>"
             } else {
                 self.current_function.name()
             };
+
+            // Disassemble the chunk if we have code to disassemble
             if self.output && chunk.code.len() - start_address > 0 {
                 chunk.disassemble_chunk_from(chunk_name, start_address);
             }
+
+            // Update the start address of the function (this is mainly used for the 'main' function aka global script function)
             self.current_function.set_start_address(start_address);
         }
 
         Rc::from(self.current_function.clone())
     }
 
+    // Begins a scope
     fn begin_scope(&mut self) {
         self.locals.begin_scope();
     }
 
+    // Ends a scope. Pops all the locals used in the scope
     fn end_scope(&mut self, chunk: &mut Chunk) {
         for _ in 0..self.locals.end_scope() {
             self.emit_byte(chunk, opcode::OP_POP);
         }
     }
+
+    // Check if we are in a scope
     fn is_scoped(&self) -> bool {
         self.locals.scope_depth() > 0
     }
+
+    // Parses and emits a string constant
     fn string(&mut self, chunk: &mut Chunk) {
         let token = &self.parser.previous;
         let lexeme = self.lexer.get_lexeme(token).to_string();
@@ -293,6 +335,8 @@ impl Compiler {
 
         self.emit_constant(chunk, Value::String(Rc::from(&lexeme[1..lexeme.len() - 1])));
     }
+
+    // Resolves a local variable in the current scope
     fn resolve_local(&mut self, name: Token) -> Option<usize> {
         let lexeme = self.lexer.get_lexeme(&name);
 
@@ -306,6 +350,8 @@ impl Compiler {
             None => None,
         }
     }
+
+    // Parses and compiles a variable declaration or assignment
     fn named_variable(&mut self, chunk: &mut Chunk, name: Token, can_assign: bool) {
         // See if we can find a local variable with this name
         let (var_index, get_op, set_op) = match self.resolve_local(name) {
@@ -331,47 +377,54 @@ impl Compiler {
             self.emit_bytes(chunk, get_op, var_index);
         }
     }
+
+    // Parses and compiles a variable declaration
     fn variable(&mut self, chunk: &mut Chunk, can_assign: bool) {
         self.named_variable(chunk, self.parser.previous, can_assign);
     }
+
+    // Parses and compiles a number constant
     fn number(&mut self, chunk: &mut Chunk) {
         let token = &self.parser.previous;
         let lexeme = self.lexer.get_lexeme(token);
         let value = lexeme.parse::<Value>().expect("Failed to parse lexeme");
         self.emit_constant(chunk, value);
     }
+
+    // Parses and compiles a grouping expression
     fn grouping(&mut self, chunk: &mut Chunk) {
         self.expression(chunk);
         self.consume(TokenKind::RightParen, "Expect ')' after expression.");
     }
+
+    // Parses and compiles an expression
     fn expression(&mut self, chunk: &mut Chunk) {
         //self.parser.binary_expression();
         self.parse_expression(chunk, Precedence::Assignment);
     }
 
+    // Parses and compiles a block (scope)
     fn block(&mut self, chunk: &mut Chunk) {
+        // Iterate all declarations in the block and compile them
         while !self.check(TokenKind::RightBrace) && !self.check(TokenKind::Eof) {
             self.declaration(chunk);
         }
         self.consume(TokenKind::RightBrace, "Expect '}' after block.");
     }
 
+    // Parses and compiles a function
     fn function(&mut self, chunk: &mut Chunk, function_type: FunctionType) -> Rc<Function> {
         let old_function_type = self.function_type;
         let old_function = self.current_function.clone();
         self.function_type = function_type;
         let start_addr = chunk.code.len();
         let old_locals = self.locals.clone();
-        //let old_chunk = self.chunk.clone();
 
         self.locals = Locals::new();
         self.locals.declare(String::from("")); // Reserve slot 0 for the vm
-                                               //self.chunk = Chunk::new();
 
         let function_name = self.lexer.get_lexeme(&self.parser.previous).to_string();
         self.current_function.set_name(function_name);
-        //self.current_function.set_start_address(start_addr);
-        //self.function.set_chunk_index(self.chunks.len() - 1);
 
         self.begin_scope();
 
@@ -411,6 +464,7 @@ impl Compiler {
         function
     }
 
+    // Parses and compiles a function declaration
     fn function_declaration(&mut self, chunk: &mut Chunk) {
         // Get the name of the function
         let global = self.parse_variable(chunk, "Expect function name.");
@@ -419,22 +473,25 @@ impl Compiler {
         let lexer_state = self.lexer.clone();
         let parser_state = self.parser.clone();
 
-        // Just get it past the function
-
+        // We don't want to commit the function code to the chunk yet, we just want to parse past it
         self.commit = false;
         let function = self.compile_function(chunk, (self.lexer.clone(), self.parser.clone()));
         self.commit = true;
 
         // Emit the function constant immediately, don't defer this
+        // We need to be able to access it when executing
         let constant = self.make_constant(chunk, Value::Function(function));
         self.emit_bytes(chunk, opcode::OP_CONSTANT, constant);
 
-        self.function_starts
+        // Store the lexer state, parser state and function constant so we can actually compile it at the end of compilation
+        self.function_start_states
             .push((lexer_state, parser_state, constant as usize));
 
-        // Define it as a global, will also try to define the local, but that has already been done
+        // Define global variable for the function
         self.define_variable(chunk, global);
     }
+
+    // This does the actual function compilation at the end of the compilation process
     fn compile_function(&mut self, chunk: &mut Chunk, state: (Lexer, Parser)) -> Rc<Function> {
         // Set state to a state where the function name has been parsed and the global has been defined
         self.lexer = state.0;
@@ -450,6 +507,7 @@ impl Compiler {
         // TODO: Restore lexer and parser state? Realistically it won't be used again since we are in a state of only compiling functions
     }
 
+    // Parses and compiles a variable declaration
     fn var_declaration(&mut self, chunk: &mut Chunk) {
         let global = self.parse_variable(chunk, "Expect variable name.");
         if self.match_token(TokenKind::Equal) {
@@ -466,11 +524,14 @@ impl Compiler {
         self.define_variable(chunk, global);
     }
 
+    // Parses and compiles an expression statement
     fn expression_statement(&mut self, chunk: &mut Chunk) {
         self.expression(chunk);
         self.consume(TokenKind::Semicolon, "Expect ';' after expression.");
         self.emit_byte(chunk, opcode::OP_POP);
     }
+
+    // Parses and compiles an if statement
     fn if_statement(&mut self, chunk: &mut Chunk) {
         self.consume(TokenKind::LeftParen, "Expect '(' after 'if'.");
         // Compile condition expression
@@ -503,7 +564,9 @@ impl Compiler {
         self.patch_jump(chunk, else_jump);
     }
 
+    // Parses and compiles a for loop statement
     fn for_statement(&mut self, chunk: &mut Chunk) {
+        // Start loop scope
         self.begin_scope();
 
         self.consume(TokenKind::LeftParen, "Expect '(' after 'for'.");
@@ -531,6 +594,7 @@ impl Compiler {
             // Jump to body
             let body_jump = self.emit_jump(chunk, opcode::OP_JUMP);
             let increment_start = chunk.code.len();
+
             // Compile the increment expression
             self.expression(chunk);
 
@@ -547,19 +611,20 @@ impl Compiler {
             // Patch the jump to the start of the body
             self.patch_jump(chunk, body_jump);
         }
+        // Compile the loop body
         self.statement(chunk);
 
+        // Jump back to top
         self.emit_jump_back(chunk, loop_start);
 
-        match loop_end {
-            Some(loop_end) => {
-                self.patch_jump(chunk, loop_end);
-                // Pop the condition value from stack
-                self.emit_byte(chunk, opcode::OP_POP);
-            }
-            None => {}
+        if let Some(loop_end) = loop_end {
+            // Patch the jump to the end of the loop
+            self.patch_jump(chunk, loop_end);
+            // Pop the condition value from stack
+            self.emit_byte(chunk, opcode::OP_POP);
         }
 
+        // End loop scope
         self.end_scope(chunk);
     }
     fn while_statement(&mut self, chunk: &mut Chunk) {
@@ -567,8 +632,10 @@ impl Compiler {
         let loop_start = chunk.code.len();
 
         self.consume(TokenKind::LeftParen, "Expect '(' after 'while'.");
+
         // Compile the condition expression
         self.expression(chunk);
+
         self.consume(TokenKind::RightParen, "Expect ')' after condition.");
 
         let jump_to_end = self.emit_jump(chunk, opcode::OP_JUMP_IF_FALSE);
@@ -579,17 +646,21 @@ impl Compiler {
         // Compile the body statement
         self.statement(chunk);
 
+        // Jump back to start of loop
         self.emit_jump_back(chunk, loop_start);
 
+        // Patch the jump to the end of the loop now that we know how long the loop body is
         self.patch_jump(chunk, jump_to_end);
     }
 
+    // Parses and compiles a print statement
     fn print_statement(&mut self, chunk: &mut Chunk) {
         self.expression(chunk);
         self.consume(TokenKind::Semicolon, "Expect ';' after value.");
         self.emit_byte(chunk, opcode::OP_PRINT);
     }
 
+    // Parses and compiles a return statement
     fn return_statement(&mut self, chunk: &mut Chunk) {
         if self.function_type == FunctionType::Script {
             self.error("Cannot return from top-level code.");
@@ -604,6 +675,7 @@ impl Compiler {
         }
     }
 
+    // Synchronizes the lexer and parser to a valid state, after the erronous declaration
     fn synchronize(&mut self) {
         self.parser.panic_mode = false;
         while self.parser.current.kind != TokenKind::Eof {
@@ -625,6 +697,7 @@ impl Compiler {
         }
     }
 
+    // Parses and compiles a statement
     fn statement(&mut self, chunk: &mut Chunk) {
         if self.match_token(TokenKind::Print) {
             self.print_statement(chunk);
@@ -645,6 +718,7 @@ impl Compiler {
         }
     }
 
+    // Parses and compiles a declaration
     fn declaration(&mut self, chunk: &mut Chunk) {
         if self.match_token(TokenKind::Fun) {
             self.function_declaration(chunk);
@@ -660,6 +734,7 @@ impl Compiler {
         }
     }
 
+    // Parses and compiles a unary expression
     fn unary(&mut self, chunk: &mut Chunk) {
         let operator_kind = self.parser.previous.kind;
 
@@ -673,6 +748,8 @@ impl Compiler {
             _ => (),
         }
     }
+
+    // Parses and compiles a binary expression
     fn binary(&mut self, chunk: &mut Chunk) {
         let operator_kind = self.parser.previous.kind;
 
@@ -697,12 +774,14 @@ impl Compiler {
         }
     }
 
+    // Parses and compiles a call instruction
     fn call(&mut self, chunk: &mut Chunk) {
         // Emit the return address constant
         let argument_count = self.argument_list(chunk);
         self.emit_bytes(chunk, opcode::OP_CALL, argument_count);
     }
 
+    // Compiles a literal
     fn literal(&mut self, chunk: &mut Chunk) {
         match self.parser.previous.kind {
             TokenKind::False => self.emit_byte(chunk, opcode::OP_FALSE),
@@ -712,6 +791,7 @@ impl Compiler {
         }
     }
 
+    // Parses and compiles a prefix expression
     fn parse_prefix(&mut self, chunk: &mut Chunk, can_assign: bool) {
         match self.parser.previous.kind {
             TokenKind::LeftParen => self.grouping(chunk),
@@ -726,6 +806,7 @@ impl Compiler {
         }
     }
 
+    // Parses and compiles an infix expression
     fn parse_infix(&mut self, chunk: &mut Chunk) {
         match self.parser.previous.kind {
             TokenKind::Percent
@@ -747,6 +828,8 @@ impl Compiler {
             }
         }
     }
+
+    // Parses an compiles a full expression statement (prefix and infix)
     fn parse_expression(&mut self, chunk: &mut Chunk, precedence: Precedence) {
         self.advance();
 
@@ -769,12 +852,14 @@ impl Compiler {
         }
     }
 
+    // Adds an identifier constant to the chunk
     fn identifier_constant(&mut self, chunk: &mut Chunk, token: Token) -> u8 {
         let lexeme = self.lexer.get_lexeme(&token).to_string();
 
         self.make_constant(chunk, Value::String(Rc::from(lexeme)))
     }
 
+    // Adds a local variable to scope
     fn add_local(&mut self, name: String) {
         if self.locals.is_full() {
             self.error("Too many local variables in function.");
@@ -782,8 +867,10 @@ impl Compiler {
         }
         self.locals.declare(name);
     }
+
+    // Gets variable name and adds it to the scope
     fn declare_variable(&mut self) {
-        // Global
+        // Global, ignore
         if !self.is_scoped() {
             return;
         }
@@ -797,6 +884,7 @@ impl Compiler {
         self.add_local(name);
     }
 
+    // Parses a variable expression and adds it to the scope and constants
     fn parse_variable(&mut self, chunk: &mut Chunk, message: &str) -> u8 {
         // Consume the identifier
 
@@ -812,6 +900,7 @@ impl Compiler {
         self.identifier_constant(chunk, self.parser.previous)
     }
 
+    // Marks a local as initialized
     fn mark_initialized(&mut self) {
         if !self.is_scoped() {
             return;
@@ -819,6 +908,7 @@ impl Compiler {
         self.locals.define();
     }
 
+    // Defines a variable
     fn define_variable(&mut self, chunk: &mut Chunk, global: u8) {
         if self.is_scoped() {
             // We are in a scope, so define the local so it is ready for use
@@ -828,6 +918,7 @@ impl Compiler {
         self.emit_bytes(chunk, opcode::OP_DEFINE_GLOBAL, global);
     }
 
+    // Parses an argument list and returns the number of arguments
     fn argument_list(&mut self, chunk: &mut Chunk) -> u8 {
         let mut argument_count = 0;
 
@@ -850,7 +941,7 @@ impl Compiler {
         argument_count
     }
 
-    /// Compiles an 'and' statement
+    // Compiles an 'and' statement
     fn and(&mut self, chunk: &mut Chunk) {
         // Short circuit the jump if the left operand is falsey
         let end_jump = self.emit_jump(chunk, opcode::OP_JUMP_IF_FALSE);
@@ -864,7 +955,7 @@ impl Compiler {
         self.patch_jump(chunk, end_jump);
     }
 
-    /// Compiles an 'or' statement
+    // Compiles an 'or' statement
     fn or(&mut self, chunk: &mut Chunk) {
         // Jump to next statement if the left operand is falsey
         let else_jump = self.emit_jump(chunk, opcode::OP_JUMP_IF_FALSE);
@@ -899,6 +990,7 @@ enum Precedence {
     Call,       // . ()
 }
 
+// Retrieves the precedence of the current token
 impl<'a> From<TokenKind> for Precedence {
     fn from(kind: TokenKind) -> Self {
         match kind {
