@@ -13,7 +13,7 @@ fn main() {
     If nothing is provided, it will run the REPL
     */
 
-    let mut parser = ArgParse::new();
+    let mut parser = ArgParse::new("BLOX");
     parser
         .arg("--disassembly")
         .help("Prints the disassembly of the program")
@@ -22,9 +22,16 @@ fn main() {
         .arg("--trace_execution")
         .help("Prints disassembly per instruction")
         .arg("--frame_info")
-        .help("Prints frame information per instruction");
+        .help("Prints frame information per instruction")
+        .arg("--help")
+        .help("Prints this message!");
 
     parser.parse();
+
+    if parser.get("--help").is_some() {
+        parser.print_help();
+        return;
+    }
 
     // Create settings for the VM
     let mut settings = blox::vm::Settings::new();

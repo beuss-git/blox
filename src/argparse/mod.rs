@@ -12,24 +12,28 @@ pub struct Arg {
 }
 
 pub struct ArgParse {
+    program_name: String,
     args: HashMap<String, Arg>,
     current: Option<String>,
     non_bound: Vec<String>, // non-bound arguments
 }
 
 impl ArgParse {
-    pub fn new() -> Self {
+    pub fn new(program_name: &str) -> Self {
         Self {
+            program_name: program_name.to_string(),
             args: HashMap::new(),
             current: None,
             non_bound: Vec::new(),
         }
     }
 
+    // Gets all non-bound arguments
     pub fn get_non_bound(&self) -> &Vec<String> {
         &self.non_bound
     }
 
+    // Retrieves the value of the argument key
     pub fn get(&self, key: &str) -> Option<String> {
         if let Some(arg) = self.args.get(key) {
             // Only return if found
@@ -49,11 +53,42 @@ impl ArgParse {
         None
     }
 
-    fn print_help(&self) {
-        for arg in self.args.values() {
-            println!("{:?}", arg);
+    // Prints help text
+    pub fn print_help(&self) {
+        println!("{}", self.program_name);
+        println!("\narguments:");
+
+        // Sort the arguments by name
+        let mut args: Vec<&String> = self.args.keys().collect();
+        args.sort();
+
+        for key in args {
+            let arg = self.args.get(key).unwrap();
+            // Formats and prints the argument with indentation padding
+            let mut arg_str = String::from("  ");
+            arg_str.push_str(&arg.name);
+            if arg.alternative.is_some() {
+                arg_str.push_str(" (--");
+                arg_str.push_str(arg.alternative.as_ref().unwrap());
+                arg_str.push(')');
+            }
+            if arg.required {
+                arg_str.push_str(" (required)");
+            }
+            if arg.default.is_some() {
+                arg_str.push_str(" (default: ");
+                arg_str.push_str(arg.default.as_ref().unwrap());
+                arg_str.push(')');
+            }
+            if arg.help.is_some() {
+                arg_str.push_str("\n    ");
+                arg_str.push_str(arg.help.as_ref().unwrap());
+            }
+            // Print the argument text
+            println!("{}", arg_str);
         }
     }
+
     // Split for testing
     fn internal_parse(&mut self, arguments: Vec<String>) -> bool {
         // Skip the program name
@@ -86,13 +121,11 @@ impl ArgParse {
             i += 1;
         }
 
-        if self.args.contains_key("--help") {
-            self.print_help();
-        }
         true
     }
 
     #[cfg(not(tarpaulin_include))]
+    // Parses the arguments and returns true if successful
     pub fn parse(&mut self) -> bool {
         let mut args = std::env::args();
         // Skip the program name
@@ -122,6 +155,7 @@ impl ArgParse {
     }
 
     #[allow(dead_code)]
+    // Sets help message for the argument
     pub fn help(&mut self, help: &str) -> &mut Self {
         if let Some(last) = &self.current {
             self.args.get_mut(last).unwrap().help = Some(help.to_string());
@@ -133,6 +167,7 @@ impl ArgParse {
     }
 
     #[allow(dead_code)]
+    // Sets default value for the argument
     pub fn default(&mut self, value: &str) -> &mut Self {
         if let Some(last) = &self.current {
             self.args.get_mut(last).unwrap().default = Some(value.to_string());
@@ -149,7 +184,7 @@ mod tests {
     use super::*;
     #[test]
     fn test_argparser() {
-        let mut parser = ArgParse::new();
+        let mut parser = ArgParse::new("test");
         parser.arg("--help").help("Print this help message");
         parser.arg("--default").default("default");
         parser.arg("--value");
@@ -175,14 +210,14 @@ mod tests {
     #[test]
     #[should_panic]
     fn test_invalid_help() {
-        let mut parser = ArgParse::new();
+        let mut parser = ArgParse::new("test");
         parser.help("Print this help message");
     }
 
     #[test]
     #[should_panic]
     fn test_invalid_default() {
-        let mut parser = ArgParse::new();
+        let mut parser = ArgParse::new("test");
         parser.default("default");
     }
 }
