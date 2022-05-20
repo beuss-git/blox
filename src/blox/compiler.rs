@@ -70,7 +70,6 @@ impl Compiler {
 
                 // A poor man's Rc clone :)
                 new_function.set_arity(f.arity());
-                new_function.set_chunk_index(f.chunk_index());
                 new_function.set_name(f.name().to_string());
                 new_function.set_start_address(start_address);
             }
