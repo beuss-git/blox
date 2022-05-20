@@ -1533,7 +1533,7 @@ print fib_non_recursive(n);
             Value::Number(3.0),
         );
 
-        // Test more random placement
+        // Test lack of popping native function from stack
         expect_value(
             &mut vm,
             r#"
