@@ -44,14 +44,13 @@ impl CallFrame {
     }
 }
 pub struct VM {
-    chunk: Chunk,
-    value_stack: Vec<Value>,
-    last_printed: Option<Value>,
-    globals: BTreeMap<Rc<str>, Value>,
-
-    frame_stack: Vec<CallFrame>,
-    pc: usize,
-    settings: Settings,
+    chunk: Chunk,                      // The chunk of code being executed
+    value_stack: Vec<Value>,           // The value stack
+    last_printed: Option<Value>,       // The last value printed (used in tests)
+    globals: BTreeMap<Rc<str>, Value>, // The global variables
+    frame_stack: Vec<CallFrame>,       // The also known as the call stack
+    pc: usize,                         // The program counter
+    settings: Settings,                // The settings for the VM
 }
 
 // Macro to execute a binary operation on two numbers
@@ -1161,22 +1160,6 @@ mod tests {
         "#,
             Value::String(Rc::from("world")),
         );
-
-        /*vm = new_vm();
-        let res = vm.interpret(
-            r#"
-        if (true) {
-            print "hello";
-        } else if (false) {
-            print "world";
-        } else {
-            print "!";
-        }
-        "#
-            .to_string(),
-        );
-        assert_eq!(res, InterpretResult::Ok);
-        assert_eq!(vm.last_value().unwrap(), Value::String("hello".to_string()));*/
     }
     #[test]
     fn test_logical_operators() {
