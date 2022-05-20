@@ -1531,5 +1531,15 @@ print fib_non_recursive(n);
             "#,
             Value::Number(3.0),
         );
+
+        // Test more random placement
+        expect_value(
+            &mut vm,
+            r#"
+
+            print 3 - test_func_single_arg(1);
+            "#,
+            Value::Number(2.0),
+        );
     }
 }
