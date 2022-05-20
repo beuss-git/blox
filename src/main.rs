@@ -50,8 +50,9 @@ fn main() {
     }
 
     let non_bound_args = parser.get_non_bound();
-    // Found non-bound arg(s) assume the first one is a source file path
+
     if !non_bound_args.is_empty() {
+        // Found non-bound arg(s) assume the first one is a source file path
         let path = non_bound_args.first().unwrap();
 
         if path.is_empty() {
