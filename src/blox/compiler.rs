@@ -398,7 +398,6 @@ impl Compiler {
 
     // Parses and compiles an expression
     fn expression(&mut self, chunk: &mut Chunk) {
-        //self.parser.binary_expression();
         self.parse_expression(chunk, Precedence::Assignment);
     }
 

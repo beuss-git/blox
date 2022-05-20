@@ -70,7 +70,6 @@ fn main() {
             }
             Err(err) => {
                 println!("Failed to read source file: {}", err);
-                return;
             }
         }
     } else {
