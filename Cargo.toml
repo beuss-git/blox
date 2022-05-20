@@ -3,10 +3,8 @@ name = "blox"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[dependencies]
 [profile.release]
 debug = true
-lto = true      # Enable Link Time Optimization, massive performance improvement
-panic="abort"   # This disables the default "unwind" feature and looks like ignores 'expect' which had 20% in the profiler
+lto = "fat"      # Enable Link Time Optimization, massive performance improvement
+#panic="abort"   # This disables the default "unwind" feature and looks like ignores 'expect' which had 20% in the profiler

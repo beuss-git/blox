@@ -59,8 +59,9 @@ macro_rules! binary_op {
         ($self:ident, $value_type:ident, $op:tt) => {
             match ($self.pop(), $self.pop()) {
                 (Value::Number(b), Value::Number(a)) => $self.push(Value::$value_type(a $op b)),
-                _ => {
-                    $self.runtime_error("Operands must be numbers.");
+                (a,b) => {
+                    $self.runtime_error(format!("Operands must be numbers. Got {:?} and {:?}", a, b).as_str(),
+);
                     return InterpretResult::RuntimeError;
                 }
             }
@@ -139,11 +140,11 @@ impl VM {
 
         loop {
             // Print debug data if enabled
-            if self.settings.trace_execution {
-                self.chunk.disassemble_instruction(self.pc);
-            }
             if self.settings.trace_stack {
                 self.print_value_stack();
+            }
+            if self.settings.trace_execution {
+                self.chunk.disassemble_instruction(self.pc);
             }
             if self.settings.frame_info {
                 println!("Frame count: {}", self.frame_stack.len());
@@ -179,17 +180,14 @@ impl VM {
                 opcode::OP_SUBTRACT => binary_op!(self, Number, -),
                 opcode::OP_MULTIPLY => binary_op!(self, Number, *),
                 opcode::OP_DIVIDE => binary_op!(self, Number, /),
-                opcode::OP_NOT => match self.value_stack.pop() {
-                    Some(x) => self.push(Value::Boolean(x.is_falsey())),
+                opcode::OP_NOT => {
+                    let val = self.pop();
+                    self.push(Value::Boolean(val.is_falsy()));
+                }
+                opcode::OP_NEGATE => match self.pop() {
+                    Value::Number(n) => self.push(Value::Number(-n)),
                     _ => {
-                        self.runtime_error("Stack is empty.");
-                        return InterpretResult::RuntimeError;
-                    }
-                },
-                opcode::OP_NEGATE => match self.value_stack.pop() {
-                    Some(Value::Number(n)) => self.push(Value::Number(-n)),
-                    _ => {
-                        self.runtime_error("Stack is empty");
+                        self.runtime_error("Operand must be a number.");
                         return InterpretResult::RuntimeError;
                     }
                 },
@@ -208,7 +206,7 @@ impl VM {
                 }
                 opcode::OP_JUMP_IF_FALSE => {
                     let offset = self.read_short();
-                    if self.peek().is_falsey() {
+                    if self.peek().is_falsy() {
                         self.pc += offset as usize;
                     }
                     // Else keep on churning
@@ -401,6 +399,9 @@ impl VM {
                 let args = self.pop_n(arg_count as usize);
                 // Call the native function
                 let result = native.call(&args);
+
+                // Remove the called function from the stack too
+                self.pop();
 
                 self.push(result);
 
@@ -1530,6 +1531,16 @@ print fib_non_recursive(n);
             print tester();
             "#,
             Value::Number(3.0),
+        );
+
+        // Test more random placement
+        expect_value(
+            &mut vm,
+            r#"
+
+            print 3 - test_func_single_arg(1);
+            "#,
+            Value::Number(2.0),
         );
     }
 }
