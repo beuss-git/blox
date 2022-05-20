@@ -23,6 +23,7 @@ impl Default for Value {
 }
 
 impl Value {
+    // Checks if the value is falsey
     pub fn is_falsey(&self) -> bool {
         match self {
             Value::Nil => true,
@@ -30,6 +31,8 @@ impl Value {
             _ => false,
         }
     }
+
+    // Checks if the values are the same
     pub fn is_same(a: Value, b: Value) -> bool {
         match (a, b) {
             (Value::Boolean(a), Value::Boolean(b)) => a == b,
@@ -51,6 +54,7 @@ impl Printer for Value {
     }
 }
 
+// Implements Display for Value
 impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -73,6 +77,7 @@ impl fmt::Display for Value {
     }
 }
 
+// Implements FromStr for Value
 impl FromStr for Value {
     type Err = ();
     fn from_str(s: &str) -> Result<Self, Self::Err> {
