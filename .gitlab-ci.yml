@@ -5,10 +5,5 @@ default:
 test-all:
   stage: test
   script:
-<<<<<<< HEAD
     - docker run --security-opt seccomp=unconfined -v "/builds/$RUNNER_TOKEN_KEY/$CONCURRENT_ID/$NAMESPACE/$PROJECT_NAME:/volume" xd009642/tarpaulin
-=======
-    - docker run --security-opt seccomp=unconfined -v "/builds:/volume" xd009642/tarpaulin
->>>>>>> master
-  coverage: '/^\d+.\d+% coverage/'
 
