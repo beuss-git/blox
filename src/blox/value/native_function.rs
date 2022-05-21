@@ -1,5 +1,6 @@
 use core::fmt;
 use std::rc::Rc;
+use std::str::FromStr;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::Value;
@@ -49,6 +50,22 @@ pub fn clock(_: &[Value]) -> Value {
 
     // Return the number of seconds since the UNIX epoch with *some* accuracy
     Value::Number(since_epoch.as_nanos() as f64 / 1_000_000_000.0)
+}
+
+pub fn read_line(_: &[Value]) -> Value {
+    let mut input = String::new();
+    std::io::stdin()
+        .read_line(&mut input)
+        .expect("Failed to read input");
+    Value::String(Rc::from(input))
+}
+
+pub fn to_number(args: &[Value]) -> Value {
+    if let Value::String(s) = args[0].clone() {
+        Value::Number(s.parse().unwrap())
+    } else {
+        panic!("to_number: expected string")
+    }
 }
 
 /*

@@ -80,6 +80,8 @@ impl VM {
         };
         // Sets up the built-in native functions
         vm.define_native("clock", native_function::clock);
+        vm.define_native("read_line", native_function::read_line);
+        vm.define_native("num", native_function::to_number);
 
         // These are just used in tests
         vm.define_native(
