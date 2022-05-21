@@ -52,6 +52,7 @@ impl ArgParse {
         None
     }
 
+    #[cfg(not(tarpaulin_include))]
     // Prints help text
     pub fn print_help(&self) {
         println!("{}", self.program_name);
