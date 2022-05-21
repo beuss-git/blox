@@ -1,7 +1,6 @@
 # blox
 
-[![pipeline status](https://git.gvk.idi.ntnu.no/course/prog2006/as/benjabj/individual-project/badges/master/pipeline.svg)](https://git.gvk.idi.ntnu.no/course/prog2006/as/benjabj/individual-project/-/commits/master)
-[![coverage report](https://git.gvk.idi.ntnu.no/course/prog2006/as/benjabj/individual-project/badges/master/coverage.svg)](https://git.gvk.idi.ntnu.no/course/prog2006/as/benjabj/individual-project/-/commits/master)
+[![codecov](https://codecov.io/gh/beuss-git/blox/branch/master/graph/badge.svg?token=0D04ZFKL3L)](https://codecov.io/gh/beuss-git/blox)
 
 This is a rust implementation of the lox language by Rober Nystrom, introduced in his book [Crafting Interpreters](https://craftinginterpreters.com/)
 
